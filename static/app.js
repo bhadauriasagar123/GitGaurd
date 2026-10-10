@@ -62,24 +62,34 @@ $("#tabs").addEventListener("keydown", (e) => {  // arrow-key navigation
 
 // ------------------------------------------------------------------ overview
 const kpi = (label, val, cls, i = 0) => { const b = h("b", { class: cls || "" }, ""); const k = h("div", { class: "kpi", style: `--i:${i}` }, b, h("span", {}, label)); countUp(b, val); return k; };
-function drawGauge(score) {
-  const cv = $("#gauge"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height, cx = W / 2, cy = H - 28, R = 112;
-  const css = getComputedStyle(document.body), line = css.getPropertyValue("--line").trim() || "#e1e5ea", ink = css.getPropertyValue("--ink").trim() || "#16202c";
-  const render = (pct) => {
-    ctx.clearRect(0, 0, W, H); ctx.lineCap = "round"; ctx.lineWidth = 22;
-    ctx.strokeStyle = line; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, 2 * Math.PI); ctx.stroke();
-    const g = ctx.createLinearGradient(cx - R, 0, cx + R, 0); g.addColorStop(0, "#ef4444"); g.addColorStop(.5, "#f59e0b"); g.addColorStop(1, "#10b981");
-    ctx.strokeStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R, Math.PI, Math.PI + Math.PI * pct / 100); ctx.stroke();
-    ctx.fillStyle = ink; ctx.font = "800 44px system-ui"; ctx.textAlign = "center"; ctx.fillText(pct.toFixed(1) + "%", cx, cy - 8);
-    ctx.font = "12px system-ui"; ctx.fillStyle = "#8a97a6"; ctx.fillText("0", cx - R, cy + 22); ctx.fillText("100", cx + R, cy + 22);
+// Compliance posture donut: how the in-scope OBLIGATIONS split by assessed status (not a credit-score style dial).
+const POSTURE = [["compliant", "Compliant", "#12a37a"], ["partial", "Partially compliant", "#f2a93b"], ["non_compliant", "Non-compliant", "#e5534b"], ["uncovered", "No control", "#9aa7b8"]];
+function drawPosture(score, byStatus) {
+  const cv = $("#gauge"), ctx = cv.getContext("2d"), W = cv.width, H = cv.height, cx = W / 2, cy = H / 2, R = 82, LW = 24;
+  const css = getComputedStyle(document.body), line = css.getPropertyValue("--chip").trim() || "#eef2f7", ink = css.getPropertyValue("--ink").trim() || "#16202c", muted = css.getPropertyValue("--muted").trim() || "#5d6b7a";
+  const total = POSTURE.reduce((a, [k]) => a + (byStatus[k] || 0), 0) || 1, GAP = 0.035;
+  const legend = clear($("#postureLegend"));
+  POSTURE.forEach(([k, label, col]) => { const n = byStatus[k] || 0; legend.append(h("div", { class: "lg" }, h("i", { class: "sw sw-" + k }), h("span", {}, label), h("b", {}, `${n}`), h("em", {}, `${Math.round(n * 100 / total)}%`))); });
+  const render = (prog) => {
+    ctx.clearRect(0, 0, W, H); ctx.lineWidth = LW; ctx.lineCap = "butt";
+    ctx.strokeStyle = line; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    let a = -Math.PI / 2; const sweep = 2 * Math.PI * prog;
+    for (const [k, , col] of POSTURE) {
+      const n = byStatus[k] || 0; if (!n) continue;
+      const span = (n / total) * 2 * Math.PI, from = a, to = Math.min(a + span, -Math.PI / 2 + sweep);
+      if (to > from + GAP) { ctx.strokeStyle = col; ctx.beginPath(); ctx.arc(cx, cy, R, from + GAP / 2, to - GAP / 2); ctx.stroke(); }
+      a += span;
+    }
+    ctx.textAlign = "center"; ctx.fillStyle = ink; ctx.font = "800 38px system-ui"; ctx.fillText((score * prog).toFixed(1) + "%", cx, cy + 6);
+    ctx.font = "600 11px system-ui"; ctx.fillStyle = muted; ctx.fillText("WEIGHTED SCORE", cx, cy + 26);  // severity-weighted, so it differs from the plain compliant-count share
   };
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return render(score);
-  const t0 = performance.now(); const tick = (t) => { const p = Math.min(1, (t - t0) / 900); render(score * (1 - Math.pow(1 - p, 3))); if (p < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick);
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return render(1);
+  const t0 = performance.now(); const tick = (t) => { const p = Math.min(1, (t - t0) / 900); render(1 - Math.pow(1 - p, 3)); if (p < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick);
 }
 async function overview() {
   skeleton($("#topGaps"), 3);
   const s = await api("/api/v1/analysis/summary"); const c = s.counts;
-  drawGauge(s.complianceScore);
+  drawPosture(s.complianceScore, c.byStatus || {});
   const k = clear($("#kpis"));
   k.append(kpi("In-scope obligations", c.inScope, "", 0), kpi("Controls", c.controls, "", 1), kpi("Open gaps", c.gaps, "", 2),
     kpi("Critical / High", (c.gapsByBand.critical || 0) + " / " + (c.gapsByBand.high || 0), "", 3), kpi("Reg. conflicts", s.contradictions, "", 4), kpi("Cross-reg clusters", s.crossRegulationClusters, "", 5), kpi("Evidence records", c.evidence, "", 6), kpi("Read-model cache", s.readModelCache, "", 7));
