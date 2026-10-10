@@ -1,6 +1,6 @@
 # Test cases & scenarios (everything is automated — nothing here needs manual testing)
 
-Run everything: `pytest -q` (335 cases, ~45 s) · firewall metrics: `python -m scripts.eval_firewall` · live black-box suite: `python -m scripts.prod_smoke` (36 checks) · results: [TEST_REPORT.md](TEST_REPORT.md).
+Run everything: `pytest -q` (366 cases, ~45 s) · firewall metrics: `python -m scripts.eval_firewall` · live black-box suite: `python -m scripts.prod_smoke` (36 checks) · results: [TEST_REPORT.md](TEST_REPORT.md).
 Test-ID → file: `P1-*` → `tests/test_scenarios_p1.py` (+ `test_compliance.py`), `P2-*` → `tests/test_scenarios_p2.py` (+ `test_firewall.py`), `PR-*` → `tests/test_production.py`, `API-*` → `tests/test_api.py`.
 
 ## A. Problem 1 – the 14 features (each has a dedicated test + the scenarios below)

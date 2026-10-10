@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7c3aed">
 <title>RegGuard Shield</title>
 <link rel="stylesheet" href="/static/style.css">
 </head>
@@ -16,15 +17,16 @@
   </div>
 </header>
 
-<nav class="tabs" role="tablist" id="tabs">
-  <button data-tab="overview" class="on">Overview</button>
-  <button data-tab="firewall">Firewall Lab</button>
-  <button data-tab="gaps">Gaps &amp; Remediation</button>
-  <button data-tab="change">Reg. Change &amp; Impact</button>
-  <button data-tab="cross">Cross-Reg &amp; Conflicts</button>
-  <button data-tab="whatif">What-If</button>
-  <button data-tab="assistant">Copilot</button>
-  <button data-tab="audit">Audit &amp; Security</button>
+<nav class="tabs" role="tablist" id="tabs" aria-label="Sections">
+  <button data-tab="overview" class="on" role="tab">Overview</button>
+  <button data-tab="upload" role="tab">Upload</button>
+  <button data-tab="firewall" role="tab">Firewall Lab</button>
+  <button data-tab="gaps" role="tab">Gaps &amp; Remediation</button>
+  <button data-tab="change" role="tab">Reg. Change &amp; Impact</button>
+  <button data-tab="cross" role="tab">Cross-Reg &amp; Conflicts</button>
+  <button data-tab="whatif" role="tab">What-If</button>
+  <button data-tab="assistant" role="tab">Copilot</button>
+  <button data-tab="audit" role="tab">Audit &amp; Security</button>
 </nav>
 
 <main>
@@ -35,12 +37,42 @@
       <button id="loadSample" class="btn primary">Load demo dataset</button>
       <span class="hint">Runs 7 documents through the firewall &rarr; extraction &rarr; impact agents (idempotent).</span>
     </div>
-    <div id="kpis" class="kpis"></div>
+    <div class="hero-row">
+      <div class="card score-card"><canvas id="gauge" width="300" height="190" role="img" aria-label="Compliance score gauge"></canvas><div class="score-label">Compliance score</div></div>
+      <div id="kpis" class="kpis"></div>
+    </div>
     <div class="grid2">
       <div class="card"><h2>Top risks</h2><div id="topGaps"></div></div>
-      <div class="card"><h2>Compliance trend (ongoing monitoring)</h2><canvas id="trend" width="520" height="180"></canvas><div id="agentTrace"></div></div>
+      <div class="card"><h2>Compliance trend (ongoing monitoring)</h2><canvas id="trend" width="520" height="180" role="img" aria-label="Compliance score trend"></canvas><div id="agentTrace"></div></div>
     </div>
     <div class="card"><h2>Traceability chain</h2><p class="hint">Click a gap in <b>Gaps &amp; Remediation</b> to see regulation &rarr; obligation &rarr; control &rarr; evidence &rarr; gap &rarr; fix &rarr; monitoring.</p><div id="traceView"></div></div>
+  </section>
+
+  <section id="tab-upload" class="panel">
+    <div class="card">
+      <h2>Upload a document &mdash; firewalled before any agent sees it</h2>
+      <p class="hint">Regulations, internal policies, control frameworks and test evidence. Every upload is scanned by the Prompt Injection Firewall, encrypted at rest, then analysed (obligations, mapping, gaps, impact).</p>
+      <div class="form-grid">
+        <label class="field">Document type<select id="upKind"><option value="regulation">Regulation / circular</option><option value="policy">Internal policy</option><option value="control">Control framework</option><option value="evidence">Test evidence</option></select></label>
+        <label class="field">Title<input id="upTitle" maxlength="300" placeholder="e.g. Cyber Resilience Directions v2.0"></label>
+        <label class="field">Source format<select id="upSource"><option value="text">Plain text</option><option value="pdf">PDF</option><option value="docx">Word (.docx)</option><option value="html">HTML</option><option value="markdown">Markdown</option><option value="email">E-mail</option><option value="api">JSON</option></select></label>
+      </div>
+      <div id="upRegBox" class="form-grid">
+        <label class="field">Regulation code<input id="upCode" maxlength="40" placeholder="IN-CYBER"></label>
+        <label class="field">Version<input id="upVersion" maxlength="20" value="1.0"></label>
+        <label class="field">Jurisdiction<input id="upJur" maxlength="10" placeholder="IN"></label>
+        <label class="field">Effective date<input id="upEff" type="date"></label>
+      </div>
+      <div id="upDrop" class="drop" tabindex="0" role="button" aria-label="Choose or drop a file">
+        <span class="big" aria-hidden="true">&#128196;</span><b>Drop a file here or click to browse</b>
+        <span class="hint">.txt .md .html .json .eml .pdf .docx &middot; up to 2.5 MB</span><span id="upFile" class="hint"></span>
+        <input id="upPick" type="file" hidden accept=".txt,.md,.markdown,.html,.htm,.json,.eml,.pdf,.docx,.csv">
+      </div>
+      <textarea id="upText" rows="9" placeholder="...or paste the document text here"></textarea>
+      <div class="row"><button id="upGo" class="btn primary">Scan &amp; ingest</button><span class="hint">Try:</span><span id="upSamples" class="chips"></span></div>
+      <div id="upResult"></div>
+    </div>
+    <div class="card"><h2>Ingested documents</h2><div id="upList"></div></div>
   </section>
 
   <section id="tab-firewall" class="panel">
@@ -79,6 +111,7 @@
 
   <section id="tab-audit" class="panel"><div class="grid2"><div class="card"><h2>Audit trail <button id="auditVerify" class="btn small">Verify hash chain</button></h2><div id="auditList"></div></div><div class="card"><h2>Runtime topology</h2><pre id="sysInfo" class="pre"></pre></div></div></section>
 </main>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <script src="/static/app.js" defer></script>
 </body>
 </html>
