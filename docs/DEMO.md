@@ -17,7 +17,7 @@
 **Terminal one-liners**
 
 ```bash
-pytest -q                          # 381 tests
+pytest -q                          # 388 tests
 python -m scripts.eval_firewall    # 52/52 attacks, 0/20 false positives
 curl -s -H "Authorization: Bearer $KEY" -H "Idempotency-Key: demo-0001" -H "X-Correlation-ID: demo-trace-0001" \
      -X POST localhost:8000/api/v1/sample/load -i | grep -i -E "idempotent|correlation"   # run twice: second call replays

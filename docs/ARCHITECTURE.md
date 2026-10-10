@@ -100,7 +100,7 @@ Commands write PostgreSQL. Queries read an **analysis snapshot** in Redis keyed 
 
 ## Self-assessment on the 3×3 grid (for the submission)
 
-* **Problem 1 – Features: F3** (all 14 of 14 implemented; threshold is 8). **Depth: D2** — structured/textual input with demonstrable reliability (deterministic engine, 381 automated tests incl. one per feature, evidence-gated status, explainable scores). We do *not* claim D3: images/audio are only handled as OCR text and scanned PDFs are not OCR'd by us.
+* **Problem 1 – Features: F3** (all 14 of 14 implemented; threshold is 8). **Depth: D2** — structured/textual input with demonstrable reliability (deterministic engine, 388 automated tests incl. one per feature, evidence-gated status, explainable scores). We do *not* claim D3: images/audio are only handled as OCR text and scanned PDFs are not OCR'd by us.
 * **Problem 2 – Features: F3** (9 of 9 attack classes; threshold is 7). **Depth: D2** — textual sources plus hidden channels, measured on a labelled corpus. D3 (true multimodal) is not claimed: image content is accepted only as OCR text.
 * Supporting features embedded: observability (correlation ids, structured logs, agent traces, audit chain), fault tolerance (idempotency, locks, typed errors, health probes), security (below), traceability, explainability.
 

@@ -1,0 +1,131 @@
+# GitHub Actions twin of azure-pipelines.yml - use it when Azure DevOps hosted parallelism is not available yet
+# (GitHub gives private repos free minutes with no approval wait). Same agents, same gates, same deploy target (webhook).
+# Required GitHub *Environments*: staging, production (add "Required reviewers" on production = the human approval).
+# Required *secrets* (Settings > Secrets and variables > Actions): STAGING_DEPLOY_HOOK_URL, PROD_DEPLOY_HOOK_URL, STAGING_URL, PROD_URL,
+#   STAGING_API_KEYS, PROD_API_KEYS   (the *_API_KEYS are the same "key:role:tenant,..." strings the services use)
+name: ci-cd
+on:
+  push: { branches: [main, develop] }
+  pull_request: { branches: [main, develop] }
+permissions: { contents: read }
+concurrency: { group: "ci-${{ github.ref }}", cancel-in-progress: true }
+env: { PYTHON_VERSION: "3.12", ENV: test }
+
+jobs:
+  agents:
+    name: Pipeline + PR review agents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -q -r requirements-dev.txt
+      - name: Pipeline Review Agent
+        run: python -m scripts.ci_agents pipeline-review --out pipeline-review.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: PR Review Agent
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}"
+          python -m scripts.ci_agents pr-review --base "origin/${{ github.base_ref }}" --out pr-review.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: agent-reports, path: "*-review.json" }
+
+  test:
+    name: Build, test, Build Review Agent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -q -r requirements-dev.txt pytest-cov bandit pip-audit detect-secrets
+      - run: pytest --junitxml=junit.xml --cov=app --cov-report=xml -q
+      - run: python -m scripts.eval_firewall
+      - run: bandit -r app -ll -q -f json -o bandit.json
+        continue-on-error: true
+      - run: pip-audit -r requirements.txt -f json -o audit.json
+        continue-on-error: true
+      - run: detect-secrets scan --all-files --exclude-files '(\.venv|tests|\.env\.example|docs)/' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
+      - name: Build Review Agent
+        run: python -m scripts.ci_agents build-review --junit junit.xml --bandit bandit.json --audit audit.json --coverage coverage.xml --out build-review.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: build-evidence, path: "junit.xml\ncoverage.xml\nbuild-review.json" }
+
+  integration:
+    name: Integration tests on real PostgreSQL 16 + Redis 7
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: regguard }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard
+      TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -q -r requirements-dev.txt
+      - run: pytest -q -x
+      - name: Doctor + Alembic on real PostgreSQL
+        run: |
+          REDIS_URL=redis://localhost:6379/0 python -m scripts.doctor --init-db
+          alembic upgrade head
+
+  deploy-staging:
+    name: Deploy to staging + smoke
+    needs: [agents, test, integration]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -q -r requirements-dev.txt
+      - name: Deploy Agent (webhook) + post-deploy verification
+        run: |
+          eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
+          SMOKE_REPORT=smoke-staging.json python -m scripts.ci_agents deploy --target webhook --base "${{ secrets.STAGING_URL }}" --execute --out deploy-staging.json
+        env:
+          STAGING_API_KEYS: ${{ secrets.STAGING_API_KEYS }}
+          DEPLOY_HOOK_URL: ${{ secrets.STAGING_DEPLOY_HOOK_URL }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: smoke-staging, path: smoke-staging.json }
+
+  deploy-production:
+    name: Release Gate + deploy to production (human approval)
+    needs: [deploy-staging, agents, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production        # configure Required reviewers on this environment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "${{ env.PYTHON_VERSION }}" }
+      - run: pip install -q -r requirements-dev.txt
+      - uses: actions/download-artifact@v4
+        with: { path: evidence }
+      - name: Release Gate Agent
+        run: |
+          python -m scripts.ci_agents release-gate --target production \
+            --build evidence/build-evidence/build-review.json --pipeline evidence/agent-reports/pipeline-review.json \
+            --smoke-staging evidence/smoke-staging/smoke-staging.json | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Deploy Agent (webhook) + verification
+        run: |
+          eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
+          python -m scripts.ci_agents deploy --target webhook --base "${{ secrets.PROD_URL }}" --execute
+        env:
+          PROD_API_KEYS: ${{ secrets.PROD_API_KEYS }}
+          DEPLOY_HOOK_URL: ${{ secrets.PROD_DEPLOY_HOOK_URL }}

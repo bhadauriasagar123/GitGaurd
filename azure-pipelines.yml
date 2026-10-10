@@ -12,6 +12,16 @@ trigger:
 pr:
   branches: { include: [main, develop] }
 
+resources:
+  containers:
+    - container: pg
+      image: postgres:16-alpine
+      env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: regguard }
+      ports: ["5432:5432"]
+    - container: redis
+      image: redis:7-alpine
+      ports: ["6379:6379"]
+
 variables:
   - group: regguard-secrets   # DEPLOY_TARGET (azure-webapp | webhook), STAGING_URL, PROD_URL, STAGING_API_KEYS, PROD_API_KEYS, + Azure/host vars
   - name: PYTHON_VERSION
@@ -97,6 +107,32 @@ stages:
             displayName: Package
           - publish: $(Build.ArtifactStagingDirectory)/drop
             artifact: drop
+
+      - job: integration
+        displayName: Integration tests on REAL PostgreSQL 16 + REAL Redis 7 (service containers)
+        pool: { vmImage: ubuntu-latest }
+        services:
+          pg: pg
+          redis: redis
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(PYTHON_VERSION)' }
+          - script: pip install -q -r requirements-dev.txt
+            displayName: Install
+          - script: pytest -q -x
+            displayName: Full suite against real PostgreSQL + Redis (JSONB, advisory locks, SET NX EX, pub/sub, TTLs)
+            env:
+              ENV: test
+              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard
+              TEST_REDIS_URL: redis://localhost:6379/0
+          - script: |
+              python -m scripts.doctor --init-db
+              alembic upgrade head
+            displayName: Doctor + Alembic migration on real PostgreSQL
+            env:
+              ENV: dev
+              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard
+              REDIS_URL: redis://localhost:6379/0
 
   - stage: Staging
     displayName: Staging

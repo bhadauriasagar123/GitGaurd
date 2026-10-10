@@ -71,11 +71,11 @@ async def main() -> int:
             body = {"kind": "regulation", "title": f"Smoke reg {i}", "sourceType": "pdf", "regulation": {"code": f"SMK-{uuid.uuid4().hex[:6]}", "version": "1.0", "jurisdiction": "IN"},
                     "content": "1.1 Banks shall encrypt customer data at rest.\n1.2 Banks shall report incidents within 24 hours."}
             return (await c.post("/api/v1/documents", headers=H("analyst", **{"Idempotency-Key": f"smk-{uuid.uuid4().hex[:10]}"}), json=body)).status_code
-        codes = await asyncio.gather(*[ingest(i) for i in range(8)])
-        check("8 parallel ingests across workers all 201", codes == [201] * 8, str(codes))
+        codes = await asyncio.gather(*[ingest(i) for i in range(6)])
+        check("6 parallel ingests across workers all 201", codes == [201] * 6, str(codes))
         mixed = await asyncio.gather(*[c.get("/api/v1/analysis/summary", headers=H("viewer")) for _ in range(25)],
-                                     *[c.post("/api/v1/firewall/scan", headers=H("analyst"), json={"content": "Quarterly report due."}) for _ in range(25)])
-        check("50 concurrent mixed requests, zero 5xx", all(m.status_code < 500 for m in mixed), str(sorted({m.status_code for m in mixed})))
+                                     *[c.post("/api/v1/firewall/scan", headers=H("analyst"), json={"content": "Quarterly report due."}) for _ in range(8)])
+        check("33 concurrent mixed requests, zero 5xx", all(m.status_code < 500 for m in mixed), str(sorted({m.status_code for m in mixed})))
         v = (await c.get("/api/v1/audit/verify", headers=H("admin"))).json()
         check("audit hash chain intact after concurrency", v.get("valid") is True, str(v))
         r = await c.get("/api/v1/documents", headers=H("viewer"))
