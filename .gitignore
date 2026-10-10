@@ -4,5 +4,6 @@ __pycache__/
 *.db
 .env
 .pytest_cache/
-.claude/
 junit*.xml
+.claude/launch.json
+.claude/settings.local.json

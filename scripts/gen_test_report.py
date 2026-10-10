@@ -1,6 +1,6 @@
 """Turn a pytest JUnit XML into docs/TEST_REPORT.md:  pytest --junitxml=junit.xml && python -m scripts.gen_test_report junit.xml"""
 import sys
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from collections import defaultdict
 from datetime import datetime, timezone
 

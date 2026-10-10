@@ -13,6 +13,8 @@
 | CI/CD | **Azure DevOps Pipelines** | Free tier: 1 Microsoft-hosted parallel job (1,800 min/month) for *public* projects; **private projects must request the free grant** (form linked from Organization settings → Parallel jobs) — or use a **self-hosted agent** on your laptop/VM, which is free (swap `vmImage: ubuntu-latest` for `name: <your-pool>`). |
 | Secrets | Pipeline **Library variable group** (secret variables) → Bicep secure params → App Settings | Upgrade path: Key Vault references. |
 
+> **Agent-driven delivery:** the pipeline is now `Validate -> Staging -> Production` with review/gate/deploy agents, a pluggable deploy target (Azure App Service **or any host with a deploy hook**) and a human approval on production. The authoritative variable list and set-up steps are in [AGENTS.md](AGENTS.md); the Azure-specific steps below remain valid for `DEPLOY_TARGET=azure-webapp`.
+
 ## One-time setup (≈20 min)
 
 1. **Azure**: create/sign in to a subscription (free account is fine). Create a resource group, e.g. `rg-regguard`.

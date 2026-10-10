@@ -128,3 +128,7 @@ The same script runs automatically after every Azure deployment (see `azure-pipe
 ## E. Accuracy gates (`tests/test_accuracy.py`)
 
 Gold sets v1–v4 must stay above fixed floors for firewall accuracy / attack recall / false-positive rate, extraction F1 and mapping top-1; the learned model file must be present and sane; rules alone must still block a textbook attack with the model disabled; a purely statistical hit cannot block on its own. See [ACCURACY.md](ACCURACY.md).
+
+## F. Delivery agents (`tests/test_ci_agents.py`, 24 cases)
+
+PR Review: clean change passes; committed secrets blocked (AWS, `*_TOKEN = "…"`, `password:` …) but not in tests/docs/examples; ORM change without migration blocked; app change without tests warned; security-sensitive paths flagged; firewall/model change flagged; masked failures and risky constructs flagged; **prompt-injection text inside a diff** detected and the LLM step skipped; attack strings in exempt test data do not trip it; **LLM findings can never block**. Build Review: pass / failed tests / deleted tests / excessive skips / SAST / CVE / coverage / missing evidence. Pipeline Review: current pipeline passes; removed scan, echoed secret, curl-pipe-shell, deployment without Environment, invalid YAML, masked failure, weak Bicep, root Dockerfile. Release Gate: missing evidence, production needs passing staging smoke, security sign-off flag. Deploy: dry-run, missing hook → failure + rollback, smoke failure → rollback, never-ready → rollback. CLI exit codes follow verdicts.

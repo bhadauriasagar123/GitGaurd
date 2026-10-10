@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 
 from scripts.ci_agents.common import Report
 
