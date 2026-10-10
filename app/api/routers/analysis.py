@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import Principal, idempotent, rate_limit, require
 from app.api.schemas import AskIn, WhatIfIn
+from app.compliance.engine import score_breakdown
 from app.cqrs import messages as M
 
 router = APIRouter(prefix="/api/v1", tags=["Compliance Intelligence"])
@@ -22,7 +23,7 @@ async def summary(request: Request, p: Principal = Depends(require("viewer")), _
             "topGaps": [{"id": g["id"], "title": g["title"], "regCode": g["regCode"], "clause": g["clause"], "risk": g["risk"], "detail": g["detail"]} for g in a["gaps"][:5]],
             "contradictions": len(a["contradictions"]), "crossRegulationClusters": len(a["crossRegulation"]),
             "regulatoryChanges": [{"regCode": c["regCode"], "from": c["fromVersion"], "to": c["toVersion"], "modified": len(c["modified"]), "added": len(c["added"]), "removed": len(c["removed"])} for c in a["changes"]],
-            "readModelCache": a.get("_cache")}
+            "readModelCache": a.get("_cache"), "scoreBreakdown": score_breakdown(a["assessments"], a["complianceScore"])}
 
 
 @router.get("/obligations", summary="Extracted obligations incl. applicability (features 1, 3)")

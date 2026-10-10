@@ -163,3 +163,29 @@ def simulate(state: dict, changes_: list[dict], today: date | None = None) -> di
         "obligationStatusShifts": shifts,
         "newContradictions": len(after["contradictions"]) - len(before["contradictions"]),
     }
+
+
+CREDIT = {"compliant": 1.0, "partial": 0.5}
+
+
+def score_breakdown(assessments: list[dict], score: float) -> dict:
+    """Explain the headline score: how many points each status contributes and which obligations cost the most.
+    Points = credit x severity / sum(severity) x 100, so the contributions add up to `score` exactly."""
+    total = sum(a["severity"] for a in assessments) or 1.0
+    by_status: dict[str, dict] = {}
+    losses = []
+    for a in assessments:
+        c = CREDIT.get(a["status"], 0.0)
+        d = by_status.setdefault(a["status"], {"count": 0, "weight": 0.0, "points": 0.0})
+        d["count"] += 1
+        d["weight"] += a["severity"]
+        d["points"] += c * a["severity"] / total * 100
+        if c < 1.0:
+            losses.append({"obligationId": a["obligationId"], "regCode": a["regCode"], "clause": a["clause"], "status": a["status"],
+                           "pointsLost": round((1 - c) * a["severity"] / total * 100, 1), "text": a["text"][:140]})
+    losses.sort(key=lambda x: -x["pointsLost"])
+    return {"formula": "score = sum(credit x severity) / sum(severity) x 100;  credit: compliant 1.0, partial 0.5, non-compliant 0, no control 0",
+            "byStatus": {k: {"count": v["count"], "weight": round(v["weight"], 2), "points": round(v["points"], 1)} for k, v in by_status.items()},
+            "totalWeight": round(total, 2), "scoreCheck": round(sum(v["points"] for v in by_status.values()), 1),
+            "pointsLost": round(100 - score, 1), "topLosses": losses[:3],
+            "plainCompliantShare": round(100 * by_status.get("compliant", {"count": 0})["count"] / max(len(assessments), 1), 1)}

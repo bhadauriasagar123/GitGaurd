@@ -38,7 +38,7 @@
       <span class="hint">Runs 7 documents through the firewall &rarr; extraction &rarr; impact agents (idempotent).</span>
     </div>
     <div class="hero-row">
-      <div class="card score-card"><div class="score-label">Compliance posture</div><canvas id="gauge" width="220" height="200" role="img" aria-label="Obligations by compliance status"></canvas><div id="postureLegend" class="legend"></div></div>
+      <div class="card score-card"><div class="score-label">Compliance posture</div><canvas id="gauge" width="220" height="200" tabindex="0" role="img" aria-label="Obligations by compliance status. Hover, focus or tap for how the score is calculated." aria-describedby="scoreTip"></canvas><span class="hint tip-hint">Hover the score for the breakdown</span><div id="postureLegend" class="legend"></div></div>
       <div id="kpis" class="kpis"></div>
     </div>
     <div class="grid2">
@@ -111,6 +111,7 @@
 
   <section id="tab-audit" class="panel"><div class="grid2"><div class="card"><h2>Audit trail <button id="auditVerify" class="btn small">Verify hash chain</button></h2><div id="auditList"></div></div><div class="card"><h2>Runtime topology</h2><pre id="sysInfo" class="pre"></pre></div></div></section>
 </main>
+<div id="scoreTip" class="tip" role="tooltip" hidden></div>
 <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 <script src="/static/app.js" defer></script>
 </body>

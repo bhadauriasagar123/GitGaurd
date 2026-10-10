@@ -13,6 +13,8 @@
 | CI/CD | **Azure DevOps Pipelines** | Free tier: 1 Microsoft-hosted parallel job (1,800 min/month) for *public* projects; **private projects must request the free grant** (form linked from Organization settings → Parallel jobs) — or use a **self-hosted agent** on your laptop/VM, which is free (swap `vmImage: ubuntu-latest` for `name: <your-pool>`). |
 | Secrets | Pipeline **Library variable group** (secret variables) → Bicep secure params → App Settings | Upgrade path: Key Vault references. |
 
+> **Starting at $0?** See [FREE_ARCHITECTURE.md](FREE_ARCHITECTURE.md) (Render + Neon + Upstash, no Azure subscription needed).
+
 > **Agent-driven delivery:** the pipeline is now `Validate -> Staging -> Production` with review/gate/deploy agents, a pluggable deploy target (Azure App Service **or any host with a deploy hook**) and a human approval on production. The authoritative variable list and set-up steps are in [AGENTS.md](AGENTS.md); the Azure-specific steps below remain valid for `DEPLOY_TARGET=azure-webapp`.
 
 ## One-time setup (≈20 min)
@@ -38,7 +40,7 @@
 
 ## What the pipeline does
 
-`CI`: install → **366 tests** → **firewall quality gate** (fails on any missed attack/false positive) → bandit SAST → pip-audit CVE scan → secret scan → publish test + coverage → package.
+`CI`: install → **381 tests** → **firewall quality gate** (fails on any missed attack/false positive) → bandit SAST → pip-audit CVE scan → secret scan → publish test + coverage → package.
 `Deploy` (main only): Bicep (`infra/main.bicep`, idempotent: plan + web app + PostgreSQL + db) → zip deploy (Oryx installs `requirements.txt`) → smoke test against `/readyz`, which verifies **both PostgreSQL and Redis**.
 
 The app creates its tables on first start (`create_all`). For schema evolution add Alembic migrations before the first production release.

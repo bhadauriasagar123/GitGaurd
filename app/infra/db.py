@@ -20,8 +20,12 @@ class Database:
             if ":memory:" in url:
                 kwargs["poolclass"] = StaticPool
         else:
-            kwargs.update(pool_size=10, max_overflow=10, pool_pre_ping=True, pool_recycle=1800, pool_timeout=10,
-                          connect_args={"timeout": 10, "command_timeout": 30})
+            s = get_settings()
+            connect_args = {"timeout": 30, "command_timeout": 30}  # 30 s connect budget: serverless Postgres (Neon) may need to wake up
+            if s.uses_pgbouncer:
+                connect_args["statement_cache_size"] = 0  # asyncpg prepared statements break behind transaction-mode poolers
+            kwargs.update(pool_size=s.db_pool_size, max_overflow=s.db_max_overflow, pool_pre_ping=True, pool_recycle=300, pool_timeout=15,
+                          connect_args=connect_args)
         self.engine: AsyncEngine = create_async_engine(url, **kwargs)
         self.sessionmaker = async_sessionmaker(self.engine, expire_on_commit=False)
 

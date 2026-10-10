@@ -60,6 +60,42 @@ $("#tabs").addEventListener("keydown", (e) => {  // arrow-key navigation
   const n = btns[(i + (e.key === "ArrowRight" ? 1 : btns.length - 1)) % btns.length]; n.focus(); showTab(n.dataset.tab);
 });
 
+// ------------------------------------------------------------------ score explainer (hover / focus / tap on the donut)
+let LAST_SUMMARY = null;
+function buildScoreTip(s) {
+  const b = s.scoreBreakdown, tip = clear($("#scoreTip")); if (!b) return;
+  const lbl = { compliant: "Compliant (credit 1.0)", partial: "Partially compliant (0.5)", non_compliant: "Non-compliant (0)", uncovered: "No control (0)" };
+  tip.append(h("h4", {}, `Weighted compliance score: ${s.complianceScore}%`),
+    h("div", { class: "sub" }, `As of ${s.asOf} · ${s.counts.inScope} in-scope obligations · bank profile: ${s.profile.entityType}`),
+    h("div", { class: "formula" }, b.formula), h("h5", {}, "Where the points come from"));
+  POSTURE.forEach(([k, , col]) => {
+    const d = b.byStatus[k]; if (!d) return;
+    tip.append(h("div", { class: "rowt" }, h("i", { class: "sw sw-" + k }), h("span", {}, lbl[k]), h("b", {}, d.count), h("span", { class: "pts" }, `+${d.points} pts`)));
+  });
+  tip.append(h("div", { class: "rowt" }, h("span"), h("b", {}, "Total"), h("span"), h("b", { class: "pts" }, `${b.scoreCheck} / 100`)));
+  if (b.topLosses.length) {
+    tip.append(h("h5", {}, `Biggest point losses (${b.pointsLost} pts lost in total)`));
+    b.topLosses.forEach((l) => tip.append(h("div", { class: "loss" }, h("span", {}, `${l.regCode} cl.${l.clause} · ${l.status.replace("_", " ")}`), h("span", {}, `-${l.pointsLost} pts`))));
+  }
+  tip.append(h("div", { class: "foot" }, `Severity-weighted, so it differs from the plain share of compliant obligations (${b.plainCompliantShare}%). Evidence-based: a control with no passing, in-cadence test can never count as compliant. Open “Gaps & Remediation” to see what to fix, or “What-If” to simulate it.`));
+}
+function placeTip() {
+  const cv = $("#gauge"), tip = $("#scoreTip"), r = cv.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
+  let left = r.left + r.width / 2 - tw / 2; left = Math.max(12, Math.min(left, innerWidth - tw - 12));
+  let top = r.top - th - 10; if (top < 8) top = Math.min(r.bottom + 10, innerHeight - th - 8);
+  tip.style.left = left + "px"; tip.style.top = top + "px";
+}
+function showScoreTip() { if (!LAST_SUMMARY) return; const tip = $("#scoreTip"); buildScoreTip(LAST_SUMMARY); tip.hidden = false; placeTip(); }
+function hideScoreTip() { $("#scoreTip").hidden = true; }
+(() => {
+  const cv = $("#gauge");
+  cv.addEventListener("mouseenter", showScoreTip); cv.addEventListener("mouseleave", hideScoreTip);
+  cv.addEventListener("focus", showScoreTip); cv.addEventListener("blur", hideScoreTip);
+  cv.addEventListener("click", () => ($("#scoreTip").hidden ? showScoreTip() : hideScoreTip()));  // touch devices
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") hideScoreTip(); });
+  addEventListener("scroll", hideScoreTip, { passive: true });
+})();
+
 // ------------------------------------------------------------------ overview
 const kpi = (label, val, cls, i = 0) => { const b = h("b", { class: cls || "" }, ""); const k = h("div", { class: "kpi", style: `--i:${i}` }, b, h("span", {}, label)); countUp(b, val); return k; };
 // Compliance posture donut: how the in-scope OBLIGATIONS split by assessed status (not a credit-score style dial).
@@ -89,6 +125,7 @@ function drawPosture(score, byStatus) {
 async function overview() {
   skeleton($("#topGaps"), 3);
   const s = await api("/api/v1/analysis/summary"); const c = s.counts;
+  LAST_SUMMARY = s;
   drawPosture(s.complianceScore, c.byStatus || {});
   const k = clear($("#kpis"));
   k.append(kpi("In-scope obligations", c.inScope, "", 0), kpi("Controls", c.controls, "", 1), kpi("Open gaps", c.gaps, "", 2),

@@ -4,8 +4,29 @@ from __future__ import annotations
 import hashlib
 from functools import lru_cache
 
-from pydantic import Field, model_validator
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalise_database_url(url: str) -> str:
+    """Accept the URLs free providers hand out (Neon, Supabase, Render, Heroku-style) and make them asyncpg-ready:
+    postgres:// | postgresql://  ->  postgresql+asyncpg://     ?sslmode=require -> ?ssl=require     (libpq-only params dropped)."""
+    if not url or url.startswith(("sqlite", "postgresql+asyncpg://")) and "sslmode" not in url and "channel_binding" not in url:
+        return url
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    if scheme in ("postgres", "postgresql"):
+        scheme = "postgresql+asyncpg"
+    q = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if "sslmode" in q:
+        mode = q.pop("sslmode")
+        q.setdefault("ssl", {"disable": "disable", "allow": "prefer", "prefer": "prefer", "require": "require",
+                             "verify-ca": "verify-ca", "verify-full": "verify-full"}.get(mode, "require"))
+    for libpq_only in ("channel_binding", "options", "target_session_attrs", "application_name"):
+        q.pop(libpq_only, None)
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(q), parts.fragment))
 
 
 @lru_cache(maxsize=1)
@@ -23,6 +44,9 @@ class Settings(BaseSettings):
     # Persistence: PostgreSQL (relational tables + JSONB document collections) and Redis.
     database_url: str = "sqlite+aiosqlite:///./regguard.db"
     redis_url: str = "fakeredis://"  # dev/test fallback; production requires a real Redis (rediss://...)
+    db_pool_size: int = 5  # small defaults suit free-tier PostgreSQL connection limits (1 worker x (5+5) connections)
+    db_max_overflow: int = 5
+    db_pgbouncer: bool = False  # set true behind pgbouncer/transaction pooling (auto-detected for '-pooler' hosts, e.g. Neon)
 
     # Security
     api_keys: str = ""  # "key:role:tenant,key2:analyst:tenant"
@@ -51,6 +75,15 @@ class Settings(BaseSettings):
     foundry_deployment: str = "gpt-4o-mini"
     foundry_api_version: str = "2024-10-21"
     llm_timeout_sec: float = 20.0
+
+    @field_validator("database_url")
+    @classmethod
+    def _normalise_db_url(cls, v: str) -> str:
+        return normalise_database_url(v)
+
+    @property
+    def uses_pgbouncer(self) -> bool:
+        return self.db_pgbouncer or "-pooler" in self.database_url or ":6543/" in self.database_url  # Neon / Supabase pooler
 
     @property
     def is_prod(self) -> bool:

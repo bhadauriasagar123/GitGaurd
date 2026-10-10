@@ -1,0 +1,14 @@
+.git
+.venv
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+*.db
+.pytest_cache
+.pgdata
+tests
+junit*.xml
+docs
+.claude

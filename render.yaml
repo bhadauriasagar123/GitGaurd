@@ -1,0 +1,26 @@
+# Render Blueprint - $0 hosting for the web tier (Docker). Database and Redis come from free external providers:
+#   PostgreSQL: Neon (free)   Redis: Upstash (free)   -> paste their connection URLs as the secrets below.
+# Deploy: Render dashboard -> New -> Blueprint -> select this repo. Secrets (sync:false) are asked for once and never stored in git.
+# Free web services sleep when idle (first request after a pause is slow) and have a small RAM/CPU quota: 1 worker is intentional.
+services:
+  - type: web
+    name: regguard-shield
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    autoDeploy: true            # deploys on push to the connected branch; or set false and use the Deploy Hook from the pipeline
+    envVars:
+      - key: ENV
+        value: production
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: DOCS_ENABLED
+        value: "false"
+      - key: DATABASE_URL       # Neon: postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/db?sslmode=require  (auto-converted)
+        sync: false
+      - key: REDIS_URL          # Upstash: rediss://default:<password>@<host>.upstash.io:6379
+        sync: false
+      - key: API_KEYS           # <24+ random chars>:admin:acme-bank,<24+ random>:analyst:acme-bank,<24+ random>:viewer:acme-bank
+        sync: false
+      - key: ENC_KEY            # 64 hex chars:  python -c "import secrets;print(secrets.token_hex(32))"
+        sync: false

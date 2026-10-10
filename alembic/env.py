@@ -6,6 +6,7 @@ import os
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.core.config import normalise_database_url
 from app.infra.orm import Base
 
 config = context.config
@@ -13,7 +14,7 @@ target_metadata = Base.metadata
 
 
 def _url() -> str:
-    return os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./regguard.db")
+    return normalise_database_url(os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///./regguard.db"))
 
 
 def run_migrations_offline() -> None:

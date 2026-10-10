@@ -20,7 +20,7 @@ untrusted input ─▶ [Firewall: extract▸normalise▸decode▸detect▸sessio
 python -m venv .venv && .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --no-server-header                            # http://localhost:8000  (dev key is pre-filled in the UI)
-pytest -q                                                # 366 tests
+pytest -q                                                # 381 tests
 python -m scripts.eval_firewall                          # firewall regression corpus
 python -m scripts.eval_accuracy all                      # gold-set accuracy (extraction / mapping / firewall)
 ```
@@ -69,4 +69,4 @@ Two layers: explainable **rules** (precise, per-class evidence) plus a small **l
 
 Idempotency (`Idempotency-Key`: replay, payload-mismatch 422, in-flight 409, failure releases key) · correlation IDs (validated, propagated through logs/audit/agent trace/errors) · RFC-7807 error model with no internal leakage · RBAC + tenant isolation · Redis rate limiting · tamper-evident hash-chained audit log · CQRS with Redis read-model · distributed locks · health/readiness probes · structured JSON logs with redaction · agent execution trace on every ingest.
 
-Delivery agents: [AGENTS](docs/AGENTS.md) · Accuracy: [ACCURACY](docs/ACCURACY.md) · Tests: [TEST_CASES](docs/TEST_CASES.md) · [TEST_REPORT](docs/TEST_REPORT.md) · Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [SECURITY / VAPT](docs/SECURITY.md) · [DEPLOYMENT on Azure DevOps](docs/DEPLOYMENT.md) · [DEMO SCRIPT & 3×3 declaration](docs/DEMO.md)
+Free hosting: [FREE_ARCHITECTURE](docs/FREE_ARCHITECTURE.md) · Delivery agents: [AGENTS](docs/AGENTS.md) · Accuracy: [ACCURACY](docs/ACCURACY.md) · Tests: [TEST_CASES](docs/TEST_CASES.md) · [TEST_REPORT](docs/TEST_REPORT.md) · Docs: [ARCHITECTURE](docs/ARCHITECTURE.md) · [SECURITY / VAPT](docs/SECURITY.md) · [DEPLOYMENT on Azure DevOps](docs/DEPLOYMENT.md) · [DEMO SCRIPT & 3×3 declaration](docs/DEMO.md)
