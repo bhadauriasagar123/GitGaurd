@@ -33,6 +33,9 @@ def test_pr_blocks_committed_secret_but_not_in_tests_or_examples():
     assert bad.verdict == "block" and any(r.startswith("secret-") for r in rules(bad))
     ok = pr_review.review(diff(tests__t_dot_py=['PASSWORD = "abcd1234efgh5678ijkl"'], docs__a_dot_md=["AKIAABCDEFGHIJKLMNOP"]))
     assert not any(r.startswith("secret-") for r in rules(ok))
+    for line in ('DEBUG_TOKEN = "abcd1234efgh5678ijklmnop"', "db_password: 'S3cretValue12345'", 'client_secret="aaaaaaaaaaaaaaaaaaaa"'):
+        assert "secret-hardcoded-credential" in rules(pr_review.review(diff(app__a_dot_py=[line], tests__t_dot_py=["pass"]))), line
+    assert "secret-hardcoded-credential" not in rules(pr_review.review(diff(app__a_dot_py=['token = get_token(request)', 'password = ""'], tests__t_dot_py=["pass"])))
     aws = pr_review.review(diff(app__a_dot_py=["k='AKIAABCDEFGHIJKLMNOP'"], tests__t_dot_py=["pass"]))
     assert "secret-aws-key" in rules(aws)
 

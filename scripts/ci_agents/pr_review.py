@@ -18,7 +18,7 @@ SCAN_EXEMPT = (r"^app/firewall/", r"^app/benchmark/", r"^tests/", r"^docs/", r"^
 SECRET_PATTERNS = [
     ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}")), ("private-key", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("github-token", re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}")), ("openai-style-key", re.compile(r"\bsk-[A-Za-z0-9]{20,}")),
-    ("hardcoded-credential", re.compile(r"(?i)\b(?:api[_-]?key|secret|passwd|password|token)\b\s*[=:]\s*['\"][^'\"\s]{12,}['\"]")),
+    ("hardcoded-credential", re.compile(r"(?i)[A-Za-z0-9_.-]*(?:api[_-]?key|secret|passwd|password|token|credential)[A-Za-z0-9_.-]*\s*[=:]\s*['\"][^'\"\s]{12,}['\"]")),
     ("connection-string", re.compile(r"(?i)\b(?:postgres(?:ql)?(?:\+\w+)?|redis|rediss|mongodb)://[^\s:@/]+:[^\s@/]{4,}@")),
 ]
 SECRET_EXEMPT = (r"^tests/", r"^docs/", r"^\.env\.example$", r"^app/benchmark/", r"^app/firewall/corpus\.py$", r"^scripts/prod_smoke\.py$", r"^azure-pipelines\.yml$")
