@@ -82,6 +82,11 @@ async def main() -> int:
         check("rate-limit headers present", "ratelimit-remaining" in r.headers)
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
+    report = os.environ.get("SMOKE_REPORT")  # machine-readable result for the Release Gate Agent
+    if report:
+        import json
+        with open(report, "w", encoding="utf8") as fh:
+            json.dump({"passed": not failed, "total": len(results), "failed": len(failed), "failures": [r[0] for r in failed], "base": BASE}, fh)
     return 1 if failed else 0
 
 

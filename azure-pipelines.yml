@@ -1,80 +1,124 @@
-# Azure DevOps pipeline - CI (tests + security gates) -> CD (Azure App Service, Linux, Python)
-# Free-tier notes are in docs/DEPLOYMENT.md (Microsoft-hosted parallelism for private projects must be requested;
-# a self-hosted agent on your own machine is free and works with this file by replacing `vmImage` with `name: <pool>`).
+# RegGuard Shield - agent-driven delivery on Azure DevOps (no Azure subscription needed for CI; deploy target is pluggable).
+#
+#   PR  ->  [Pipeline Review Agent] [PR Review Agent -> PR comment] [Build + Build Review Agent]
+#   develop -> Validate -> Staging  (Deploy Agent -> smoke suite -> Release Gate Agent)
+#   main    -> Validate -> Staging -> Release Gate (production) -> Production (Environment approval) -> Deploy Agent -> smoke
+#
+# Agents are deterministic gates (they can fail the build); the optional LLM reviewer is advisory only. Production always
+# keeps a HUMAN approval (Environment check). Free tier: 1 free Microsoft-hosted job for public projects (request the grant for
+# private ones) or use a self-hosted agent (`pool: { name: <your-pool> }`). See docs/DEPLOYMENT.md and docs/AGENTS.md.
 trigger:
-  branches: { include: [main] }
+  branches: { include: [main, develop] }
 pr:
-  branches: { include: [main] }
+  branches: { include: [main, develop] }
 
 variables:
-  - group: regguard-secrets          # Library variable group: AZURE_SERVICE_CONNECTION, WEBAPP_NAME, RESOURCE_GROUP, PG_ADMIN_PASSWORD(secret) ...
+  - group: regguard-secrets   # DEPLOY_TARGET (azure-webapp | webhook), STAGING_URL, PROD_URL, STAGING_API_KEYS, PROD_API_KEYS, + Azure/host vars
   - name: PYTHON_VERSION
     value: '3.12'
 
 stages:
-  - stage: CI
-    displayName: Build, test, secure
+  - stage: Validate
+    displayName: Review agents + build
     jobs:
-      - job: test
+      - job: pipeline_review
+        displayName: Pipeline Review Agent
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(PYTHON_VERSION)' }
+          - script: pip install -q -r requirements-dev.txt
+            displayName: Install
+          - script: python -m scripts.ci_agents pipeline-review --out $(Build.ArtifactStagingDirectory)/pipeline-review.json
+            displayName: Review the pipeline, Bicep and Dockerfile (fails on weakened gates)
+          - publish: $(Build.ArtifactStagingDirectory)/pipeline-review.json
+            artifact: pipeline-review
+            condition: always()
+
+      - job: pr_review
+        displayName: PR Review Agent
+        condition: eq(variables['Build.Reason'], 'PullRequest')
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - checkout: self
+            fetchDepth: 0
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(PYTHON_VERSION)' }
+          - script: pip install -q -r requirements-dev.txt
+            displayName: Install
+          - script: |
+              git fetch origin "$(System.PullRequest.TargetBranchName)"
+              python -m scripts.ci_agents pr-review --base "origin/$(System.PullRequest.TargetBranchName)" --llm --post --out $(Build.ArtifactStagingDirectory)/pr-review.json
+            displayName: Review the diff, post findings to the PR (secrets, migrations, tests, security-sensitive paths, injection in diff, advisory LLM)
+            env:
+              SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+              FOUNDRY_ENDPOINT: $(FOUNDRY_ENDPOINT)
+              FOUNDRY_KEY: $(FOUNDRY_KEY)
+          - publish: $(Build.ArtifactStagingDirectory)/pr-review.json
+            artifact: pr-review
+            condition: always()
+
+      - job: build
+        displayName: Build, test, Build Review Agent
         pool: { vmImage: ubuntu-latest }
         steps:
           - task: UsePythonVersion@0
             inputs: { versionSpec: '$(PYTHON_VERSION)' }
           - script: |
               python -m pip install -U pip
-              pip install -r requirements-dev.txt pytest-cov bandit pip-audit
+              pip install -r requirements-dev.txt pytest-cov bandit pip-audit detect-secrets
             displayName: Install
           - script: pytest --junitxml=junit.xml --cov=app --cov-report=xml --cov-report=term -q
-            displayName: Unit + API tests (133 tests, 14 Problem-1 features, 9 Problem-2 attack classes)
+            displayName: Tests (features, attack classes, production scenarios, accuracy gates)
             env: { ENV: test }
           - script: python -m scripts.eval_firewall
-            displayName: Firewall quality gate (fails on any missed attack or false positive)
+            displayName: Firewall quality gate (eval_firewall - any missed attack or false positive fails)
             env: { ENV: test }
-          - script: bandit -r app -ll -q
-            displayName: SAST (bandit, medium+ severity fails the build)
-          - script: pip-audit -r requirements.txt --strict
+          - script: bandit -r app -ll -q -f json -o bandit.json
+            displayName: SAST (bandit)
+            continueOnError: true
+          - script: pip-audit -r requirements.txt -f json -o audit.json
             displayName: Dependency CVE scan (pip-audit)
-          - script: |
-              pip install detect-secrets
-              detect-secrets scan --all-files --exclude-files '(\.venv|tests|\.env\.example|docs)/' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
-            displayName: Secret scan
+            continueOnError: true
+          - script: detect-secrets scan --all-files --exclude-files '(\.venv|tests|\.env\.example|docs)/' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
+            displayName: Secret scan (detect-secrets)
+          - script: python -m scripts.ci_agents build-review --junit junit.xml --bandit bandit.json --audit audit.json --coverage coverage.xml --out build-review.json
+            displayName: Build Review Agent (verdict from the evidence; guards against deleted/skipped tests)
           - task: PublishTestResults@2
             condition: always()
             inputs: { testResultsFiles: junit.xml, testRunTitle: RegGuard }
           - task: PublishCodeCoverageResults@2
             condition: always()
             inputs: { summaryFileLocation: coverage.xml }
-          - task: ArchiveFiles@2
-            displayName: Package app
-            inputs:
-              rootFolderOrFile: '$(Build.SourcesDirectory)'
-              includeRootFolder: false
-              archiveType: zip
-              archiveFile: '$(Build.ArtifactStagingDirectory)/regguard.zip'
-              verbose: false
           - script: |
-              # exclude dev-only content from the deployment package
-              zip -d "$(Build.ArtifactStagingDirectory)/regguard.zip" '.venv/*' '.git/*' 'tests/*' '.pytest_cache/*' '.pgdata/*' '*.db' >/dev/null || true
-            displayName: Slim package
-          - publish: $(Build.ArtifactStagingDirectory)/regguard.zip
+              mkdir -p $(Build.ArtifactStagingDirectory)/drop
+              zip -qr $(Build.ArtifactStagingDirectory)/drop/regguard.zip app static alembic alembic.ini requirements.txt
+              cp build-review.json $(Build.ArtifactStagingDirectory)/drop/
+            displayName: Package
+          - publish: $(Build.ArtifactStagingDirectory)/drop
             artifact: drop
 
-  - stage: Deploy
-    displayName: Deploy to Azure
-    dependsOn: CI
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  - stage: Staging
+    displayName: Staging
+    dependsOn: Validate
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), or(eq(variables['Build.SourceBranch'], 'refs/heads/develop'), eq(variables['Build.SourceBranch'], 'refs/heads/main')))
     jobs:
-      - deployment: app
-        displayName: Provision + deploy
+      - deployment: staging
+        displayName: Deploy to staging + verify
         pool: { vmImage: ubuntu-latest }
-        environment: regguard-prod        # add an Approval check on this Environment for a manual gate
+        environment: regguard-staging
         strategy:
           runOnce:
             deploy:
               steps:
                 - checkout: self
+                - task: UsePythonVersion@0
+                  inputs: { versionSpec: '$(PYTHON_VERSION)' }
+                - script: pip install -q -r requirements-dev.txt
+                  displayName: Install
                 - task: AzureCLI@2
-                  displayName: Provision infrastructure (Bicep, idempotent)
+                  displayName: Provision Azure infrastructure (only when DEPLOY_TARGET=azure-webapp)
+                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
                   inputs:
                     azureSubscription: $(AZURE_SERVICE_CONNECTION)
                     scriptType: bash
@@ -82,38 +126,88 @@ stages:
                     inlineScript: |
                       az group create -n "$(RESOURCE_GROUP)" -l "$(LOCATION)" -o none
                       az deployment group create -g "$(RESOURCE_GROUP)" -f infra/main.bicep -o none \
-                        -p appName="$(WEBAPP_NAME)" \
-                           pgAdminPassword="$(PG_ADMIN_PASSWORD)" \
-                           redisUrl="$(REDIS_URL)" \
-                           apiKeys="$(API_KEYS)" \
-                           encKey="$(ENC_KEY)" \
-                           foundryEndpoint="$(FOUNDRY_ENDPOINT)" foundryKey="$(FOUNDRY_KEY)"
-                - task: AzureWebApp@1
-                  displayName: Deploy package (zip deploy, Oryx builds dependencies)
+                        -p appName="$(STAGING_WEBAPP_NAME)" pgAdminPassword="$(STAGING_PG_PASSWORD)" redisUrl="$(STAGING_REDIS_URL)" \
+                           apiKeys="$(STAGING_API_KEYS)" encKey="$(STAGING_ENC_KEY)" foundryEndpoint="$(FOUNDRY_ENDPOINT)" foundryKey="$(FOUNDRY_KEY)"
+                - task: AzureCLI@2
+                  displayName: Deploy Agent (azure-webapp)
+                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
                   inputs:
                     azureSubscription: $(AZURE_SERVICE_CONNECTION)
-                    appType: webAppLinux
-                    appName: $(WEBAPP_NAME)
-                    package: $(Pipeline.Workspace)/drop/regguard.zip
-                    runtimeStack: 'PYTHON|3.12'
-                    startUpCommand: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --no-server-header --proxy-headers --forwarded-allow-ips "*" --timeout-keep-alive 30 --timeout-graceful-shutdown 20'
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
+                      PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(STAGING_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
+                        python -m scripts.ci_agents deploy --target azure-webapp --base "$(STAGING_URL)" --execute --out deploy-staging.json
+                  env: { STAGING_API_KEYS: $(STAGING_API_KEYS), SMOKE_REPORT: smoke-staging.json }
                 - script: |
-                    for i in $(seq 1 20); do
-                      code=$(curl -s -o /dev/null -w '%{http_code}' "https://$(WEBAPP_NAME).azurewebsites.net/readyz") && [ "$code" = "200" ] && echo "ready" && exit 0
-                      sleep 10
-                    done
-                    echo "smoke test failed"; exit 1
-                  displayName: Post-deploy smoke test (/readyz checks PostgreSQL + Redis)
+                    eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
+                    python -m scripts.ci_agents deploy --target webhook --base "$(STAGING_URL)" --execute --out deploy-staging.json
+                  displayName: Deploy Agent (webhook host)
+                  condition: ne(variables['DEPLOY_TARGET'], 'azure-webapp')
+                  env: { STAGING_API_KEYS: $(STAGING_API_KEYS), DEPLOY_HOOK_URL: $(STAGING_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(STAGING_ROLLBACK_HOOK_URL), SMOKE_REPORT: smoke-staging.json }
                 - script: |
-                    python -m pip install -q httpx
-                    export BASE="https://$(WEBAPP_NAME).azurewebsites.net"
-                    eval "$(python - <<'PY'
-                    import os
-                    for entry in os.environ["API_KEYS"].split(","):
-                        k, role, _ = entry.split(":")
-                        print(f"export {role.upper()}_KEY='{k}'")
-                    PY
-                    )"
-                    python -m scripts.prod_smoke
-                  displayName: Production black-box suite (36 checks - security headers, RBAC, idempotency, 14 features, firewall, concurrency, audit chain)
-                  env: { API_KEYS: $(API_KEYS) }
+                    eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
+                    BASE="$(STAGING_URL)" SMOKE_REPORT=smoke-staging.json python -m scripts.prod_smoke
+                  displayName: Staging smoke suite (36 checks)
+                  env: { STAGING_API_KEYS: $(STAGING_API_KEYS) }
+                - publish: smoke-staging.json
+                  artifact: smoke-staging
+                  condition: always()
+
+  - stage: Production
+    displayName: Production
+    dependsOn: Staging
+    condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: release_gate
+        displayName: Release Gate Agent (GO / NO-GO with reasons)
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(PYTHON_VERSION)' }
+          - script: pip install -q -r requirements-dev.txt
+            displayName: Install
+          - download: current
+            artifact: drop
+          - download: current
+            artifact: pipeline-review
+          - download: current
+            artifact: smoke-staging
+          - script: |
+              python -m scripts.ci_agents release-gate --target production \
+                --build $(Pipeline.Workspace)/drop/build-review.json --pipeline $(Pipeline.Workspace)/pipeline-review/pipeline-review.json \
+                --smoke-staging $(Pipeline.Workspace)/smoke-staging/smoke-staging.json
+            displayName: Release decision (a NO-GO fails the stage before anyone is asked to approve)
+      - deployment: production
+        displayName: Deploy to production (human approval on Environment) + verify
+        dependsOn: release_gate
+        pool: { vmImage: ubuntu-latest }
+        environment: regguard-prod
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: UsePythonVersion@0
+                  inputs: { versionSpec: '$(PYTHON_VERSION)' }
+                - script: pip install -q -r requirements-dev.txt
+                  displayName: Install
+                - task: AzureCLI@2
+                  displayName: Deploy Agent (azure-webapp)
+                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
+                  inputs:
+                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
+                      PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(PROD_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
+                        python -m scripts.ci_agents deploy --target azure-webapp --base "$(PROD_URL)" --execute
+                  env: { PROD_API_KEYS: $(PROD_API_KEYS) }
+                - script: |
+                    eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
+                    python -m scripts.ci_agents deploy --target webhook --base "$(PROD_URL)" --execute
+                  displayName: Deploy Agent (webhook host)
+                  condition: ne(variables['DEPLOY_TARGET'], 'azure-webapp')
+                  env: { PROD_API_KEYS: $(PROD_API_KEYS), DEPLOY_HOOK_URL: $(PROD_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(PROD_ROLLBACK_HOOK_URL) }

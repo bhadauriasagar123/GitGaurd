@@ -1,0 +1,5 @@
+{
+  "min_tests": 330,
+  "max_skipped": 3,
+  "min_coverage": 0.70
+}

@@ -4,3 +4,4 @@ pytest-asyncio>=0.23
 aiosqlite>=0.20
 fakeredis>=2.23
 pytest-cov>=5
+pyyaml>=6
