@@ -1,0 +1,20 @@
+# Local full-stack: PostgreSQL + Redis + app.   docker compose up --build   ->  http://localhost:8000
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: regguard, POSTGRES_PASSWORD: regguard-local, POSTGRES_DB: regguard }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U regguard"], interval: 5s, retries: 10 }
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], interval: 5s, retries: 10 }
+  app:
+    build: .
+    depends_on: { db: { condition: service_healthy }, redis: { condition: service_healthy } }
+    ports: ["8000:8000"]
+    environment:
+      ENV: dev          # production mode requires real secrets; see .env.example
+      DATABASE_URL: postgresql+asyncpg://regguard:regguard-local@db:5432/regguard
+      REDIS_URL: redis://redis:6379/0
+volumes: { pgdata: {} }

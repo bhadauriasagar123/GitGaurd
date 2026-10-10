@@ -1,0 +1,119 @@
+# Azure DevOps pipeline - CI (tests + security gates) -> CD (Azure App Service, Linux, Python)
+# Free-tier notes are in docs/DEPLOYMENT.md (Microsoft-hosted parallelism for private projects must be requested;
+# a self-hosted agent on your own machine is free and works with this file by replacing `vmImage` with `name: <pool>`).
+trigger:
+  branches: { include: [main] }
+pr:
+  branches: { include: [main] }
+
+variables:
+  - group: regguard-secrets          # Library variable group: AZURE_SERVICE_CONNECTION, WEBAPP_NAME, RESOURCE_GROUP, PG_ADMIN_PASSWORD(secret) ...
+  - name: PYTHON_VERSION
+    value: '3.12'
+
+stages:
+  - stage: CI
+    displayName: Build, test, secure
+    jobs:
+      - job: test
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: UsePythonVersion@0
+            inputs: { versionSpec: '$(PYTHON_VERSION)' }
+          - script: |
+              python -m pip install -U pip
+              pip install -r requirements-dev.txt pytest-cov bandit pip-audit
+            displayName: Install
+          - script: pytest --junitxml=junit.xml --cov=app --cov-report=xml --cov-report=term -q
+            displayName: Unit + API tests (133 tests, 14 Problem-1 features, 9 Problem-2 attack classes)
+            env: { ENV: test }
+          - script: python -m scripts.eval_firewall
+            displayName: Firewall quality gate (fails on any missed attack or false positive)
+            env: { ENV: test }
+          - script: bandit -r app -ll -q
+            displayName: SAST (bandit, medium+ severity fails the build)
+          - script: pip-audit -r requirements.txt --strict
+            displayName: Dependency CVE scan (pip-audit)
+          - script: |
+              pip install detect-secrets
+              detect-secrets scan --all-files --exclude-files '(\.venv|tests|\.env\.example|docs)/' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
+            displayName: Secret scan
+          - task: PublishTestResults@2
+            condition: always()
+            inputs: { testResultsFiles: junit.xml, testRunTitle: RegGuard }
+          - task: PublishCodeCoverageResults@2
+            condition: always()
+            inputs: { summaryFileLocation: coverage.xml }
+          - task: ArchiveFiles@2
+            displayName: Package app
+            inputs:
+              rootFolderOrFile: '$(Build.SourcesDirectory)'
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: '$(Build.ArtifactStagingDirectory)/regguard.zip'
+              verbose: false
+          - script: |
+              # exclude dev-only content from the deployment package
+              zip -d "$(Build.ArtifactStagingDirectory)/regguard.zip" '.venv/*' '.git/*' 'tests/*' '.pytest_cache/*' '.pgdata/*' '*.db' >/dev/null || true
+            displayName: Slim package
+          - publish: $(Build.ArtifactStagingDirectory)/regguard.zip
+            artifact: drop
+
+  - stage: Deploy
+    displayName: Deploy to Azure
+    dependsOn: CI
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: app
+        displayName: Provision + deploy
+        pool: { vmImage: ubuntu-latest }
+        environment: regguard-prod        # add an Approval check on this Environment for a manual gate
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+                - task: AzureCLI@2
+                  displayName: Provision infrastructure (Bicep, idempotent)
+                  inputs:
+                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
+                    scriptType: bash
+                    scriptLocation: inlineScript
+                    inlineScript: |
+                      az group create -n "$(RESOURCE_GROUP)" -l "$(LOCATION)" -o none
+                      az deployment group create -g "$(RESOURCE_GROUP)" -f infra/main.bicep -o none \
+                        -p appName="$(WEBAPP_NAME)" \
+                           pgAdminPassword="$(PG_ADMIN_PASSWORD)" \
+                           redisUrl="$(REDIS_URL)" \
+                           apiKeys="$(API_KEYS)" \
+                           encKey="$(ENC_KEY)" \
+                           foundryEndpoint="$(FOUNDRY_ENDPOINT)" foundryKey="$(FOUNDRY_KEY)"
+                - task: AzureWebApp@1
+                  displayName: Deploy package (zip deploy, Oryx builds dependencies)
+                  inputs:
+                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
+                    appType: webAppLinux
+                    appName: $(WEBAPP_NAME)
+                    package: $(Pipeline.Workspace)/drop/regguard.zip
+                    runtimeStack: 'PYTHON|3.12'
+                    startUpCommand: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --no-server-header --proxy-headers --forwarded-allow-ips "*" --timeout-keep-alive 30 --timeout-graceful-shutdown 20'
+                - script: |
+                    for i in $(seq 1 20); do
+                      code=$(curl -s -o /dev/null -w '%{http_code}' "https://$(WEBAPP_NAME).azurewebsites.net/readyz") && [ "$code" = "200" ] && echo "ready" && exit 0
+                      sleep 10
+                    done
+                    echo "smoke test failed"; exit 1
+                  displayName: Post-deploy smoke test (/readyz checks PostgreSQL + Redis)
+                - script: |
+                    python -m pip install -q httpx
+                    export BASE="https://$(WEBAPP_NAME).azurewebsites.net"
+                    eval "$(python - <<'PY'
+                    import os
+                    for entry in os.environ["API_KEYS"].split(","):
+                        k, role, _ = entry.split(":")
+                        print(f"export {role.upper()}_KEY='{k}'")
+                    PY
+                    )"
+                    python -m scripts.prod_smoke
+                  displayName: Production black-box suite (36 checks - security headers, RBAC, idempotency, 14 features, firewall, concurrency, audit chain)
+                  env: { API_KEYS: $(API_KEYS) }
