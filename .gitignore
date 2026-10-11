@@ -10,3 +10,4 @@ junit*.xml
 .claude/launch.json
 .claude/settings.local.json
 /.edgeprof/
+/deck/out/

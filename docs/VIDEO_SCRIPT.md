@@ -18,3 +18,7 @@
 1. Rehearse once; keep each section within the times above.
 2. Export MP4, 1080p. Upload to YouTube as **Unlisted** (or Public) and paste the link in the form; open it in a private window to confirm it plays without login.
 3. Put the link in `deck/team.json` (`videoUrl`) and re-run `python deck/build_deck.py` so the final slide shows it.
+
+## Auto-generated version
+
+`python deck/make_video.py` renders a narrated 1280x720 MP4 (deck slides + live app, neural voice via edge-tts) to `deck/out/RegGuard-Shield-Demo.mp4`. Needs `pip install playwright imageio-ffmpeg edge-tts pymupdf` and `python -m playwright install ffmpeg`.
