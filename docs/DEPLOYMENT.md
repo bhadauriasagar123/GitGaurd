@@ -65,7 +65,7 @@ curl https://<unique>.azurewebsites.net/readyz
 
 | Provider | `LLM_BASE_URL` | `LLM_MODEL` | `LLM_API_KEY` |
 |---|---|---|---|
-| **Groq** (recommended: fast, free tier) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | console.groq.com → API Keys |
+| **Groq** (recommended: fast, free tier) | `https://api.groq.com/openai/v1` | `openai/gpt-oss-120b` (Groq retires models; list yours with `GET /models`) | console.groq.com → API Keys |
 | GitHub Models | `https://models.github.ai/inference` | `openai/gpt-4o-mini` | GitHub token with `models:read` |
 | Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.0-flash` | aistudio.google.com |
 | Ollama (local) | `http://localhost:11434/v1` | e.g. `llama3.1` | none |

@@ -29,7 +29,7 @@ services:
       # Optional LLM for the copilot (free Groq shown); leave empty for the offline analyst. Errors fall back to it automatically.
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
-      - key: LLM_MODEL
-        value: llama-3.3-70b-versatile
+      - key: LLM_MODEL          # list the models your key can use: GET https://api.groq.com/openai/v1/models
+        value: openai/gpt-oss-120b
       - key: LLM_API_KEY        # console.groq.com -> API Keys (leave empty to run without an LLM)
         sync: false
