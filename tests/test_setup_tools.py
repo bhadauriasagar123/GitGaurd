@@ -85,3 +85,52 @@ def test_smoke_accepts_one_api_keys_string_and_warns_on_truncated_keys(monkeypat
     assert "the viewer key is 31 characters but the others are 32" in out and "probably truncated" in out
     assert "admin key is" not in out and "analyst key is" not in out
     sys.modules.pop("scripts.prod_smoke", None)
+
+
+def _load_smoke(monkeypatch, argv=()):
+    import importlib
+    import sys
+    monkeypatch.setattr(sys, "argv", ["prod_smoke", *argv])
+    sys.modules.pop("scripts.prod_smoke", None)
+    mod = importlib.import_module("scripts.prod_smoke")
+    sys.modules.pop("scripts.prod_smoke", None)
+    return mod
+
+
+def test_smoke_api_keys_override_stale_individual_variables(monkeypatch, capsys):
+    """The staging mix-up: old ADMIN_KEY/ANALYST_KEY/VIEWER_KEY left in the shell must NOT beat a freshly supplied API_KEYS."""
+    monkeypatch.setenv("ADMIN_KEY", "OLD" + "x" * 28)
+    monkeypatch.setenv("ANALYST_KEY", "OLD" + "y" * 29)
+    monkeypatch.setenv("VIEWER_KEY", "OLD" + "z" * 29)
+    monkeypatch.setenv("API_KEYS", "N" * 32 + ":admin:t," + "M" * 32 + ":analyst:t," + "L" * 32 + ":viewer:t")
+    smoke = _load_smoke(monkeypatch)
+    assert smoke.K == {"admin": "N" * 32, "analyst": "M" * 32, "viewer": "L" * 32}
+    out = capsys.readouterr().out
+    assert "individual *_KEY variables are ignored" in out and "WARNING" not in out
+
+
+def test_smoke_reads_keys_from_an_env_file_without_printing_them(monkeypatch, capsys, tmp_path):
+    f = tmp_path / ".env.staging"
+    f.write_text("ENV=production\nAPI_KEYS=" + "a" * 32 + ":admin:t," + "b" * 32 + ":analyst:t," + "c" * 32 + ":viewer:t\nENC_KEY=" + "0" * 64 + "\n")
+    monkeypatch.delenv("API_KEYS", raising=False)
+    smoke = _load_smoke(monkeypatch, ["--env-file", str(f)])
+    assert smoke.K["admin"] == "a" * 32 and smoke.K["viewer"] == "c" * 32
+    out = capsys.readouterr().out
+    assert "a" * 32 not in out and "0" * 64 not in out and str(f) in out
+
+
+def test_gen_secrets_does_not_print_keys_by_default(tmp_path, capsys):
+    target = tmp_path / ".env.staging"
+    assert gen_secrets.main(["--write", str(target)]) == 0
+    out = capsys.readouterr().out
+    keys = [e.split(":")[0] for e in [l for l in target.read_text().splitlines() if l.startswith("API_KEYS=")][0][9:].split(",")]
+    assert all(k not in out for k in keys) and "not printed" in out
+    t2 = tmp_path / ".env.other"
+    gen_secrets.main(["--write", str(t2), "--show"])
+    shown = capsys.readouterr().out
+    assert any(k in shown for k in [e.split(":")[0] for e in [l for l in t2.read_text().splitlines() if l.startswith("API_KEYS=")][0][9:].split(",")])
+
+
+def test_gitignore_covers_every_env_variant():
+    ig = open(".gitignore", encoding="utf8").read().splitlines()
+    assert ".env" in ig and ".env.*" in ig and "!.env.example" in ig

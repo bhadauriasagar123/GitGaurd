@@ -14,10 +14,26 @@ import httpx
 BASE = os.environ.get("BASE", "http://127.0.0.1:8100").rstrip("/")
 K = {"admin": os.environ.get("ADMIN_KEY", ""), "analyst": os.environ.get("ANALYST_KEY", ""), "viewer": os.environ.get("VIEWER_KEY", "")}
 # Convenience: paste the service's whole API_KEYS value ("key:role:tenant,...") once instead of three separate keys (less to mistype).
-for _entry in os.environ.get("API_KEYS", "").split(","):
-    _p = _entry.strip().split(":")
-    if len(_p) == 3 and _p[1] in K and not K[_p[1]]:
-        K[_p[1]] = _p[0]
+def _api_keys_source() -> tuple[str, str]:
+    """(value, where it came from): --env-file PATH (a dotenv file containing API_KEYS=...) > API_KEYS env var > ''."""
+    argv = sys.argv[1:]
+    if "--env-file" in argv:
+        path = argv[argv.index("--env-file") + 1]
+        for line in open(path, encoding="utf8"):
+            if line.startswith("API_KEYS="):
+                return line.split("=", 1)[1].strip(), f"file {path}"
+        raise SystemExit(f"no API_KEYS= line found in {path}")
+    return os.environ.get("API_KEYS", ""), "API_KEYS environment variable"
+
+
+_raw, _src = _api_keys_source()
+if _raw:  # an explicit API_KEYS source wins over stale ADMIN_KEY/ANALYST_KEY/VIEWER_KEY left in the shell from an earlier session
+    K = {"admin": "", "analyst": "", "viewer": ""}
+    for _entry in _raw.split(","):
+        _p = _entry.strip().split(":")
+        if len(_p) == 3 and _p[1] in K and not K[_p[1]]:
+            K[_p[1]] = _p[0]
+    print(f"Using keys from the {_src} (individual *_KEY variables are ignored)")
 for _role, _key in K.items():
     if not _key:
         print(f"WARNING: no {_role} key supplied (set API_KEYS, or {_role.upper()}_KEY)")

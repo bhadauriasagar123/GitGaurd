@@ -41,6 +41,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", nargs="?", const=".env", metavar="PATH")
     ap.add_argument("--force", action="store_true")
+    ap.add_argument("--show", action="store_true", help="also print the API keys to the terminal")
     ap.add_argument("--env", default="dev", choices=["dev", "production"])
     ap.add_argument("--tenant", default="acme-bank")
     a = ap.parse_args(argv)
@@ -56,9 +57,12 @@ def main(argv=None) -> int:
         except OSError:
             pass
         print(f"Wrote {path}. Now paste your Neon URL into DATABASE_URL and your Upstash URL into REDIS_URL.")
-        print("Your API keys (use one in the UI header):")
-        for role, k in vals["keys"].items():
-            print(f"  {role:8s} {k}")
+        if a.show:
+            print("Your API keys (use one in the UI header):")
+            for role, k in vals["keys"].items():
+                print(f"  {role:8s} {k}")
+        else:
+            print("API keys and ENC_KEY were written to the file only (not printed, so they cannot leak into logs or chats). Open the file to copy them.")
         return 0
     print(text)
     return 0
