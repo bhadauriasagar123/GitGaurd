@@ -276,6 +276,13 @@ def test_default_pipeline_has_no_azure_service_connection_and_deploys_via_webhoo
     assert "AzureCLI@2" not in text and "--target webhook" in text and "azure-webapp --base" not in text
 
 
+def test_every_pipeline_parameter_has_a_non_empty_default():
+    """Azure DevOps shows a string parameter with an empty default as 'Required' and refuses a manual run without it."""
+    import yaml
+    params = yaml.safe_load(open("azure-pipelines.yml", encoding="utf8"))["parameters"]
+    assert all(str(p.get("default", "")).strip() for p in params), [p["name"] for p in params if not str(p.get("default", "")).strip()]
+
+
 def test_azure_target_adds_azure_steps_with_the_given_connection_only():
     doc, yx = _compiled({"deployTarget": "azure-webapp", "azureServiceConnection": "my-arm-connection"})
     subs = list(yx.find_values(doc, "azureSubscription"))

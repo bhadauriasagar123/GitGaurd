@@ -14,9 +14,11 @@ parameters:
     type: string
     default: webhook
     values: [webhook, azure-webapp]
+  # Only read when deployTarget=azure-webapp (then enter your Azure Resource Manager service connection name). The non-empty
+  # default matters: Azure DevOps marks a string parameter with an empty default as "Required" and blocks manual runs.
   - name: azureServiceConnection
     type: string
-    default: ''
+    default: none
 
 trigger:
   branches: { include: [main, develop] }
