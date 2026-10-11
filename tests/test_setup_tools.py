@@ -70,3 +70,16 @@ def test_doctor_never_prints_secrets(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "admin-key-0000000000000001" not in out and "mask" not in out.lower()
     assert doctor.mask("postgresql://user:SuperSecret@host/db") == "postgresql://user:***@host/db"
+
+
+def test_smoke_accepts_one_api_keys_string_and_warns_on_truncated_keys(monkeypatch, capsys):
+    import importlib
+    import sys
+    for k in ("ADMIN_KEY", "ANALYST_KEY", "VIEWER_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("API_KEYS", "A" * 32 + ":admin:t," + "B" * 32 + ":analyst:t," + "C" * 31 + ":viewer:t")
+    sys.modules.pop("scripts.prod_smoke", None)
+    smoke = importlib.import_module("scripts.prod_smoke")
+    assert smoke.K == {"admin": "A" * 32, "analyst": "B" * 32, "viewer": "C" * 31}
+    assert "viewer key is only 31 characters" in capsys.readouterr().out   # the exact mistake that caused the 401 on staging
+    sys.modules.pop("scripts.prod_smoke", None)

@@ -13,6 +13,16 @@ import httpx
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8100").rstrip("/")
 K = {"admin": os.environ.get("ADMIN_KEY", ""), "analyst": os.environ.get("ANALYST_KEY", ""), "viewer": os.environ.get("VIEWER_KEY", "")}
+# Convenience: paste the service's whole API_KEYS value ("key:role:tenant,...") once instead of three separate keys (less to mistype).
+for _entry in os.environ.get("API_KEYS", "").split(","):
+    _p = _entry.strip().split(":")
+    if len(_p) == 3 and _p[1] in K and not K[_p[1]]:
+        K[_p[1]] = _p[0]
+for _role, _key in K.items():
+    if not _key:
+        print(f"WARNING: no {_role} key supplied (set API_KEYS, or {_role.upper()}_KEY)")
+    elif len(_key) < 24:
+        print(f"WARNING: the {_role} key is only {len(_key)} characters (generated keys are 32) - was it truncated while copying?")
 H = lambda role, **extra: {"Authorization": f"Bearer {K[role]}", **extra}
 results: list[tuple[str, bool, str]] = []
 
