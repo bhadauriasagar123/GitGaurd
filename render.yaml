@@ -26,3 +26,10 @@ services:
         sync: false
       - key: ENC_KEY            # 64 hex chars:  python -c "import secrets;print(secrets.token_hex(32))"
         sync: false
+      # Optional LLM for the copilot (free Groq shown); leave empty for the offline analyst. Errors fall back to it automatically.
+      - key: LLM_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+      - key: LLM_API_KEY        # console.groq.com -> API Keys (leave empty to run without an LLM)
+        sync: false

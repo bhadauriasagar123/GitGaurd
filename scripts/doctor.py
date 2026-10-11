@@ -120,6 +120,20 @@ async def run(args) -> int:
     await close_redis()
     await Database.dispose()
 
+    # ---- optional: LLM behind the copilot
+    from app.llm.factory import build_provider
+    llm = build_provider(s)
+    if llm.name == "offline-deterministic":
+        add(PASS, "Copilot LLM", "none configured - offline deterministic analyst answers (set LLM_BASE_URL, LLM_API_KEY, LLM_MODEL for a model)")
+    else:
+        try:
+            t0 = time.perf_counter()
+            await llm.complete("Reply with the single word OK.", "ping")
+            add(PASS, "Copilot LLM", f"{llm.name} answered in {1000 * (time.perf_counter() - t0):.0f} ms")
+        except Exception as e:  # noqa: BLE001
+            add(WARN, "Copilot LLM", f"{llm.name}: {getattr(e, 'details', None) or type(e).__name__}",
+                "Check LLM_BASE_URL / LLM_API_KEY / LLM_MODEL (HTTP 401 = wrong key, 404 = wrong model or URL, 429 = rate limit). Until then the copilot falls back to the offline analyst.")
+
     # ---- optional: a running deployment
     if args.url:
         import httpx

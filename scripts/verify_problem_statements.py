@@ -13,8 +13,8 @@ from collections import Counter
 from urllib.parse import quote
 
 os.environ.update({"DATABASE_URL": "sqlite+aiosqlite:///:memory:", "REDIS_URL": "fakeredis://", "ENV": "test",
-                   "API_KEYS": "verify-admin-key-000000001:admin:verify-bank,verify-analyst-key-0000001:analyst:verify-bank",
-                   "RATE_GENERAL": "100000", "RATE_HEAVY": "100000", "FOUNDRY_ENDPOINT": "", "FOUNDRY_KEY": ""})
+                   "API_KEYS": "verify-admin-key-000000001:admin:verify-bank,verify-analyst-key-0000001:analyst:verify-bank",  # pragma: allowlist secret
+                   "RATE_GENERAL": "100000", "RATE_HEAVY": "100000", "FOUNDRY_ENDPOINT": "", "FOUNDRY_KEY": "", "LLM_BASE_URL": "", "LLM_API_KEY": "", "LLM_MODEL": ""})
 
 from app.core.config import Settings  # noqa: E402
 

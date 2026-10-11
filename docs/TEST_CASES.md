@@ -88,7 +88,7 @@ Test-ID → file: `P1-*` → `tests/test_scenarios_p1.py` (+ `test_compliance.py
 | PR-01 | **Redis down** during request | `503` + `Retry-After` + correlation id (**was 500**); liveness stays 200; readiness 503 shows `redis: down` |
 | PR-02 | Redis down on write with Idempotency-Key | fail closed (503), nothing written |
 | PR-03 | **PostgreSQL down** | `503 DEPENDENCY_UNAVAILABLE` (**was 500**) |
-| PR-04/05 | LLM provider down / timeout | typed 503; no key or host in error |
+| PR-04/05 | LLM provider down / timeout / rate-limited | copilot answers from the offline analyst (`provider: offline-fallback`); provider errors are typed and never leak the key or host |
 | PR-06 | 60 parallel mixed requests, 2 tenants | zero 5xx |
 | PR-07 | 8 parallel ingests, same tenant | all 201 (**tenant lock wait raised 5 s → 40 s**, was 409 under burst); audit chain valid |
 | PR-08 | 15 parallel audit writers | no 500, seq 1..15 gapless, chain valid (**fixed audit-sequence race**: PG advisory lock + Redis lock on every writer) |

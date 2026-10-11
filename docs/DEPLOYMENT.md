@@ -9,7 +9,7 @@
 | Compute | **App Service Linux, F1** (code deploy, Python 3.12) | Free tier; ~60 CPU-min/day quota, no Always-On → fine for a demo, cold start on first hit. Use B1 for the judging window if you want it always warm. |
 | PostgreSQL | **Azure Database for PostgreSQL – Flexible Server, Burstable B1ms** | Included in the *Azure free account* for 12 months (750 h + 32 GB) at the time of writing. |
 | Redis | **Free managed Redis (Upstash or Redis Cloud free tier)** via `rediss://` URL | Azure Cache for Redis has no free tier. Move to Azure Managed Redis / Cache for Redis when you scale. |
-| LLM (optional) | **Azure AI Foundry** deployment (e.g. gpt-4o-mini) → set `FOUNDRY_ENDPOINT/KEY/DEPLOYMENT` | Pay-per-token; the app runs fully without it (offline analyst). |
+| LLM (optional) | **Any OpenAI-compatible API** → `LLM_BASE_URL/LLM_API_KEY/LLM_MODEL` (free: Groq, GitHub Models, Gemini, OpenRouter), or **Azure AI Foundry** → `FOUNDRY_ENDPOINT/KEY/DEPLOYMENT` | The app runs fully without one (offline analyst) and falls back to it on any LLM error or rate limit. |
 | CI/CD | **Azure DevOps Pipelines** | Free tier: 1 Microsoft-hosted parallel job (1,800 min/month) for *public* projects; **private projects must request the free grant** (form linked from Organization settings → Parallel jobs) — or use a **self-hosted agent** on your laptop/VM, which is free (swap `vmImage: ubuntu-latest` for `name: <your-pool>`). |
 | Secrets | Pipeline **Library variable group** (secret variables) → Bicep secure params → App Settings | Upgrade path: Key Vault references. |
 
@@ -59,9 +59,20 @@ curl https://<unique>.azurewebsites.net/readyz
 
 `Dockerfile` is multi-stage, non-root (uid 10001), has a HEALTHCHECK, and runs `uvicorn --workers N` (multi-process, restarts dead workers). `docker compose up --build` runs the whole stack locally (PostgreSQL 16 + Redis 7).
 
-## Using Azure AI Foundry for richer answers
+## LLM for the copilot (free or Azure)
 
-Deploy a chat model in Foundry, then set `FOUNDRY_ENDPOINT=https://<resource>.openai.azure.com`, `FOUNDRY_KEY`, `FOUNDRY_DEPLOYMENT`. The copilot then uses `llm/providers.FoundryProvider`; all inputs still pass the firewall first and outputs the egress guard. To let a model *propose* obligations/mappings, add another `LLMProvider` call inside `cqrs/handlers.ingest` **after** the firewall step and validate its output with the deterministic engine.
+**Free, no Azure subscription:** set three variables on the web service (Render → Environment):
+
+| Provider | `LLM_BASE_URL` | `LLM_MODEL` | `LLM_API_KEY` |
+|---|---|---|---|
+| **Groq** (recommended: fast, free tier) | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | console.groq.com → API Keys |
+| GitHub Models | `https://models.github.ai/inference` | `openai/gpt-4o-mini` | GitHub token with `models:read` |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai` | `gemini-2.0-flash` | aistudio.google.com |
+| Ollama (local) | `http://localhost:11434/v1` | e.g. `llama3.1` | none |
+
+**Azure:** deploy a chat model in Foundry and set `FOUNDRY_ENDPOINT=https://<resource>.openai.azure.com`, `FOUNDRY_KEY`, `FOUNDRY_DEPLOYMENT` (used when `LLM_BASE_URL` is empty).
+
+Either way the model only sees firewall-cleaned, structured findings (never raw documents), its answer passes the egress guard, and if it times out, is rate-limited or errors, the copilot answers from the offline analyst and labels the answer `offline-fallback`. `python -m scripts.doctor` sends a one-word test prompt and reports whether the model answers. To let a model *propose* obligations/mappings, add another `LLMProvider` call inside `cqrs/handlers.ingest` **after** the firewall step and validate its output with the deterministic engine.
 
 ## Troubleshooting
 

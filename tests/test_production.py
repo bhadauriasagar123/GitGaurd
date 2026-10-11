@@ -61,7 +61,8 @@ async def test_PR03_database_outage_returns_503(client, monkeypatch):
     assert r.status_code == 503 and r.json()["code"] == "DEPENDENCY_UNAVAILABLE"
 
 
-async def test_PR04_llm_provider_failure_is_typed_503(client, monkeypatch):
+async def test_PR04_llm_provider_failure_degrades_to_offline_analyst(client, monkeypatch):
+    """A failing/rate-limited LLM must not break the copilot: the deterministic analyst answers and the response says so."""
     from app.core.errors import DependencyUnavailable
 
     class Down:
@@ -70,7 +71,7 @@ async def test_PR04_llm_provider_failure_is_typed_503(client, monkeypatch):
             raise DependencyUnavailable("LLM provider unavailable")
     monkeypatch.setattr(container(client), "llm", Down())
     r = await client.post("/api/v1/assistant/ask", headers=ANALYST, json={"question": "What is our score?"})
-    assert r.status_code == 503 and r.json()["code"] == "DEPENDENCY_UNAVAILABLE"
+    assert r.status_code == 200 and r.json()["provider"] == "offline-fallback" and "Compliance score" in r.json()["answer"]
 
 
 async def test_PR05_llm_http_timeout_mapped_without_leaking_internals():

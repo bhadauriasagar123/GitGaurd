@@ -71,12 +71,17 @@ class Settings(BaseSettings):
     fw_ml_enabled: bool = True
     fw_ml_threshold: float = 0.8  # P(attack) above which the learned model contributes evidence
 
-    # LLM (Azure AI Foundry / Azure OpenAI deployment) - optional, firewall-guarded
+    # LLM for the copilot - optional, firewall-guarded; without one the deterministic offline analyst answers.
+    # Any OpenAI-compatible chat API (free tiers: Groq, GitHub Models, Google Gemini, OpenRouter; or a local Ollama):
+    llm_base_url: str = ""  # e.g. https://api.groq.com/openai/v1
+    llm_api_key: str = ""
+    llm_model: str = ""  # e.g. llama-3.3-70b-versatile
+    # Azure AI Foundry / Azure OpenAI deployment:
     foundry_endpoint: str = ""  # https://<resource>.openai.azure.com  or  https://<resource>.services.ai.azure.com
     foundry_key: str = ""
     foundry_deployment: str = "gpt-4o-mini"
     foundry_api_version: str = "2024-10-21"
-    llm_timeout_sec: float = 20.0
+    llm_timeout_sec: float = 12.0  # on timeout/rate-limit/error the copilot falls back to the offline analyst
 
     @field_validator("database_url")
     @classmethod
