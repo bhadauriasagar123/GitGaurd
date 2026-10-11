@@ -34,6 +34,7 @@ class LoadSample:
     tenant: str
     actor: str
     reset: bool = True
+    dataset: str = "demo"
 
 
 @dataclass(frozen=True)

@@ -296,6 +296,23 @@ async def test_ingest_returns_document_scoped_report_with_fixes(client):
     assert rep["scoreAfter"] >= rep["scoreBefore"]
 
 
+async def test_public_regulation_dataset_loads_end_to_end(client):
+    r = await client.post("/api/v1/sample/load?dataset=real", headers={**ANALYST, "Idempotency-Key": "real-dataset-0001"})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["loaded"]) == 8 and all(x["verdict"] == "allow" for x in body["loaded"])
+    assert 60 <= body["complianceScore"] <= 95 and body["gaps"] >= 5
+    s = (await client.get("/api/v1/analysis/summary", headers=VIEWER)).json()
+    assert s["counts"]["regulations"] == 5 and s["counts"]["controls"] == 23 and s["regulatoryChanges"][0]["regCode"] == "IN-DPDP"
+    gaps = (await client.get("/api/v1/gaps", headers=VIEWER)).json()
+    assert {"THRESHOLD_MISMATCH", "INEFFECTIVE_CONTROL", "UNTESTED_CONTROL"} <= {g["type"] for g in gaps}
+    impact = (await client.get("/api/v1/impact", headers=VIEWER)).json()
+    assert any(i["regCode"] == "IN-DPDP" and i["version"] == "2.0" for i in impact)
+    conflicts = (await client.get("/api/v1/contradictions", headers=VIEWER)).json()
+    assert any(c["type"] == "RETENTION_ERASURE_TENSION" and {b["regCode"] for b in c["between"]} == {"IN-RBI-KYC", "IN-DPDP"} for c in conflicts)
+    assert (await client.post("/api/v1/sample/load?dataset=bogus", headers=ANALYST)).status_code == 400
+
+
 async def test_whatif_validation(client):
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": [{"type": "drop_database"}]})).status_code == 400
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": []})).status_code == 400

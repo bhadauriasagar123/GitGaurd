@@ -1,0 +1,14 @@
+Digital Personal Data Protection Act, 2023 read with the Digital Personal Data Protection Rules, 2025
+Version 2.0: obligations of the Act as made specific by the Rules (Rule 6 security safeguards, Rule 7 breach intimation).
+Source: https://www.meity.gov.in (operative requirements reproduced in summary form)
+
+5.1 Every request for consent shall be accompanied or preceded by a notice in clear and plain language informing the Data Principal of the personal data and the purpose for which it is proposed to be processed.
+6.1 The consent given by the Data Principal shall be free, specific, informed, unconditional and unambiguous with a clear affirmative action, and limited to the personal data necessary for the specified purpose.
+6.4 The Data Fiduciary shall allow the Data Principal to withdraw consent at any time, with the ease of doing so comparable to the ease with which consent was given.
+8.5 A Data Fiduciary shall protect personal data by reasonable security safeguards, including encryption, obfuscation or masking, access control and monitoring, to prevent personal data breach.
+8.6 On becoming aware of a personal data breach, the Data Fiduciary shall intimate the Data Protection Board without delay and shall furnish a detailed report to the Board within 72 hours of becoming aware of the breach.
+8.6.1 The Data Fiduciary shall inform each affected Data Principal of the personal data breach without delay, in clear and plain language, with the likely consequences and the safety measures the Data Principal can take.
+8.7 A Data Fiduciary shall erase personal data upon the Data Principal withdrawing consent or as soon as it is reasonable to assume that the specified purpose is no longer being served.
+8.10 A Data Fiduciary shall establish an effective mechanism to redress the grievances of Data Principals.
+8.11 A Data Fiduciary shall retain logs of processing of personal data for a minimum period of one year for the detection of unauthorised access and its investigation.
+9.1 Before processing any personal data of a child, a Data Fiduciary shall obtain the verifiable consent of the parent or lawful guardian.

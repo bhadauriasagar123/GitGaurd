@@ -1,0 +1,84 @@
+{
+  "name": "Indian bank regulatory compliance pack (CERT-In, RBI, DPDP, GDPR)",
+  "asOf": "2026-10-11",
+  "profile": {"entityType": "scheduled commercial bank", "jurisdictions": ["IN", "EU"], "products": ["retail", "payments", "cards", "corporate"]},
+  "load_order": [
+    {"file": "07_bank_control_framework.txt", "kind": "control", "title": "Bank Control Framework", "sourceType": "text"},
+    {"file": "08_control_testing_evidence.json", "kind": "evidence", "title": "Control Testing Evidence Register", "sourceType": "api"},
+    {"file": "01_certin_directions_2022.txt", "kind": "regulation", "title": "CERT-In Directions 2022 (Section 70B(6), IT Act)", "sourceType": "text",
+     "regulation": {"code": "IN-CERTIN", "version": "1.0", "jurisdiction": "IN", "effectiveDate": "2022-06-28", "entityTypes": ["all"]}},
+    {"file": "02_rbi_cyber_security_framework_2016.txt", "kind": "regulation", "title": "RBI Cyber Security Framework in Banks (2016)", "sourceType": "text",
+     "regulation": {"code": "IN-RBI-CSF", "version": "1.0", "jurisdiction": "IN", "effectiveDate": "2016-06-02", "entityTypes": ["all"]}},
+    {"file": "03_rbi_kyc_master_direction_2016.txt", "kind": "regulation", "title": "RBI Master Direction - KYC (2016, as amended)", "sourceType": "text",
+     "regulation": {"code": "IN-RBI-KYC", "version": "1.0", "jurisdiction": "IN", "effectiveDate": "2016-02-25", "entityTypes": ["all"]}},
+    {"file": "04_dpdp_act_2023.txt", "kind": "regulation", "title": "Digital Personal Data Protection Act, 2023", "sourceType": "text",
+     "regulation": {"code": "IN-DPDP", "version": "1.0", "jurisdiction": "IN", "entityTypes": ["all"]}},
+    {"file": "06_eu_gdpr_2016.txt", "kind": "regulation", "title": "EU General Data Protection Regulation (2016/679)", "sourceType": "text",
+     "regulation": {"code": "EU-GDPR", "version": "1.0", "jurisdiction": "EU", "effectiveDate": "2018-05-25", "entityTypes": ["all"]}},
+    {"file": "05_dpdp_act_and_rules_2025.txt", "kind": "regulation", "title": "DPDP Act 2023 read with DPDP Rules 2025", "sourceType": "text",
+     "regulation": {"code": "IN-DPDP", "version": "2.0", "jurisdiction": "IN", "entityTypes": ["all"]}}
+  ],
+  "attack_documents": [
+    {"file": "09_poisoned_vendor_bulletin.html", "kind": "regulation", "title": "Vendor Security Advisory - Core Banking Patch", "sourceType": "html",
+     "regulation": {"code": "VENDOR-ADV", "version": "1.0", "jurisdiction": "IN"}, "expect": "block"}
+  ],
+  "gold": {
+    "IN-CERTIN@1.0": [
+      {"clause": "1", "modality": "mandatory", "control": "CTL-01", "status": "compliant"},
+      {"clause": "2", "modality": "mandatory", "deadlineHours": 6, "control": "CTL-02", "status": "non_compliant"},
+      {"clause": "3", "modality": "mandatory", "control": "CTL-03", "status": "compliant"},
+      {"clause": "4", "modality": "mandatory", "control": "CTL-03", "status": "compliant"},
+      {"clause": "5", "modality": "mandatory", "retentionMinHours": 4320, "control": "CTL-04", "status": "non_compliant"}
+    ],
+    "IN-RBI-CSF@1.0": [
+      {"clause": "1", "modality": "mandatory", "control": "CTL-05", "status": "compliant"},
+      {"clause": "2", "modality": "mandatory", "control": "CTL-06", "status": "compliant"},
+      {"clause": "3", "modality": "mandatory", "deadlineHours": 6, "control": "CTL-02", "status": "non_compliant"},
+      {"clause": "4", "modality": "mandatory", "control": "CTL-07", "status": "non_compliant"},
+      {"clause": "5", "modality": "mandatory", "control": "CTL-08", "status": "partial"},
+      {"clause": "6", "modality": "mandatory", "control": "CTL-09", "status": "compliant"},
+      {"clause": "7", "modality": "mandatory", "control": "CTL-10", "status": "compliant"},
+      {"clause": "8", "modality": "mandatory", "control": "CTL-11", "status": "compliant"}
+    ],
+    "IN-RBI-KYC@1.0": [
+      {"clause": "1", "modality": "mandatory", "control": "CTL-12", "status": "compliant"},
+      {"clause": "2", "modality": "mandatory", "frequencyDays": 730, "control": "CTL-13", "status": "partial"},
+      {"clause": "3", "modality": "mandatory", "deadlineHours": 168, "control": "CTL-14", "status": "compliant"},
+      {"clause": "4", "modality": "mandatory", "control": null, "status": "uncovered"},
+      {"clause": "5", "modality": "mandatory", "retentionMinHours": 43800, "control": "CTL-16", "status": "compliant"},
+      {"clause": "6", "modality": "mandatory", "retentionMinHours": 43800, "control": "CTL-16", "status": "compliant"},
+      {"clause": "7", "modality": "mandatory", "control": "CTL-17", "status": "compliant"},
+      {"clause": "8", "modality": "mandatory", "control": "CTL-18", "status": "compliant"}
+    ],
+    "IN-DPDP@1.0": [
+      {"clause": "5.1", "modality": "mandatory", "control": "CTL-19"},
+      {"clause": "6.1", "modality": "mandatory", "control": "CTL-19"},
+      {"clause": "6.4", "modality": "mandatory", "control": "CTL-19"},
+      {"clause": "8.5", "modality": "mandatory", "control": "CTL-21"},
+      {"clause": "8.6", "modality": "mandatory", "control": "CTL-20"},
+      {"clause": "8.7", "modality": "mandatory", "control": "CTL-22"},
+      {"clause": "8.10", "modality": "mandatory", "control": "CTL-23"},
+      {"clause": "9.1", "modality": "mandatory", "control": "CTL-24"}
+    ],
+    "IN-DPDP@2.0": [
+      {"clause": "5.1", "modality": "mandatory", "control": "CTL-19", "status": "compliant"},
+      {"clause": "6.1", "modality": "mandatory", "control": "CTL-19", "status": "compliant"},
+      {"clause": "6.4", "modality": "mandatory", "control": "CTL-19", "status": "compliant"},
+      {"clause": "8.5", "modality": "mandatory", "control": "CTL-21", "status": "compliant"},
+      {"clause": "8.6", "modality": "mandatory", "deadlineHours": 72, "control": "CTL-20", "status": "compliant"},
+      {"clause": "8.6.1", "modality": "mandatory", "control": "CTL-20", "status": "compliant"},
+      {"clause": "8.7", "modality": "mandatory", "control": "CTL-22", "status": "compliant"},
+      {"clause": "8.10", "modality": "mandatory", "control": "CTL-23", "status": "compliant"},
+      {"clause": "8.11", "modality": "mandatory", "retentionMinHours": 8760, "control": "CTL-04", "status": "non_compliant"},
+      {"clause": "9.1", "modality": "mandatory", "control": "CTL-24", "status": "partial"}
+    ],
+    "EU-GDPR@1.0": [
+      {"clause": "5.1e", "modality": "mandatory", "control": "CTL-22", "status": "compliant"},
+      {"clause": "7.1", "modality": "mandatory", "control": "CTL-19", "status": "compliant"},
+      {"clause": "17.1", "modality": "mandatory", "control": "CTL-22", "status": "compliant"},
+      {"clause": "32.1", "modality": "mandatory", "control": "CTL-21", "status": "compliant"},
+      {"clause": "33.1", "modality": "mandatory", "deadlineHours": 72, "control": "CTL-20", "status": "compliant"},
+      {"clause": "34.1", "modality": "mandatory", "control": "CTL-20", "status": "compliant"}
+    ]
+  }
+}

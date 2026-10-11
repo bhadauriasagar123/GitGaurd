@@ -34,8 +34,8 @@
 
   <section id="tab-overview" class="panel on">
     <div class="row">
-      <button id="loadSample" class="btn primary">Load demo dataset</button>
-      <span class="hint">Runs 7 documents through the firewall &rarr; extraction &rarr; impact agents (idempotent).</span>
+      <button id="loadSample" class="btn primary">Load regulatory dataset</button>
+      <span class="hint">Resets this tenant, then runs CERT-In 2022, RBI Cyber Security Framework, RBI KYC, DPDP Act + Rules 2025 and GDPR with the bank&rsquo;s control framework and testing evidence through the firewall &rarr; extraction &rarr; mapping &rarr; impact agents.</span>
     </div>
     <div class="hero-row">
       <div class="card score-card"><div class="score-label">Compliance posture</div><canvas id="gauge" width="220" height="200" tabindex="0" role="img" aria-label="Obligations by compliance status. Hover, focus or tap for how the score is calculated." aria-describedby="scoreTip"></canvas><span class="hint tip-hint">Hover the score for the breakdown</span><div id="postureLegend" class="legend"></div></div>
@@ -100,7 +100,7 @@
   <section id="tab-whatif" class="panel">
     <div class="card"><h2>Simulate before you commit</h2>
       <p class="hint">Edit the JSON change list. Types: add_control, remove_control, update_control, add_evidence, change_regulation, set_profile. Nothing is saved.</p>
-      <div class="row"><button class="btn chip" data-wi="1">Add consent control</button><button class="btn chip" data-wi="2">Monthly access reviews</button><button class="btn chip" data-wi="3">Regulator tightens to 1h</button><button class="btn chip" data-wi="4">Remove SOC control</button></div>
+      <div class="row"><button class="btn chip" data-wi="1">Report incidents within 4h</button><button class="btn chip" data-wi="2">Keep logs for 1 year</button><button class="btn chip" data-wi="3">Crisis drill passes on re-test</button><button class="btn chip" data-wi="4">RBI tightens reporting to 2h</button></div>
       <textarea id="wiText" rows="9"></textarea>
       <div class="row"><button id="wiRun" class="btn primary">Simulate</button></div><div id="wiResult"></div></div>
   </section>

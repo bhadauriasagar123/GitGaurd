@@ -1,0 +1,12 @@
+Reserve Bank of India - Cyber Security Framework in Banks
+Circular DBS.CO/CSITE/BC.11/33.01.001/2015-16 dated 2 June 2016, with Annex 1 (Baseline Cyber Security and Resilience Requirements) and Annex 3 (incident reporting).
+Source: https://www.rbi.org.in (operative requirements reproduced in summary form)
+
+1 Banks shall put in place a Board-approved cyber security policy elucidating the strategy containing an appropriate approach to combat cyber threats given the level of complexity of business and acceptable levels of risk.
+2 Banks shall set up a Cyber Security Operations Centre (C-SOC) to continuously monitor security events and keep themselves regularly updated on emerging cyber threats.
+3 Banks shall report all unusual cyber security incidents, whether successful or attempts, to the Reserve Bank of India within 6 hours of detection (2 to 6 hours depending on severity).
+4 Banks shall have a Cyber Crisis Management Plan approved by the Board to detect, respond to, recover from and contain cyber incidents.
+5 Banks shall enforce multi-factor authentication and the principle of least privilege for privileged and administrative access to critical systems.
+6 Banks shall periodically conduct vulnerability assessment and penetration testing of internet-facing applications, servers and network components throughout their lifecycle.
+7 Banks shall ensure that vendors and third-party service providers having access to bank systems adhere to the cyber security requirements of the bank and shall assess the associated third-party risk.
+8 Banks shall conduct cyber security awareness training for staff, customers and the Board of Directors.

@@ -1,0 +1,12 @@
+Reserve Bank of India - Master Direction - Know Your Customer (KYC) Direction, 2016 (as amended)
+RBI/DBR/2015-16/18, Master Direction DBR.AML.BC.No.81/14.01.001/2015-16 dated 25 February 2016, read with the Prevention of Money Laundering Act, 2002 and the PML (Maintenance of Records) Rules, 2005.
+Source: https://www.rbi.org.in (operative requirements reproduced in summary form)
+
+1 Regulated entities shall undertake customer due diligence and verify the identity of the customer at the time of commencement of an account-based relationship.
+2 Regulated entities shall categorise customers as low, medium or high risk and shall carry out periodic updation of KYC at least once every 2 years for high-risk customers, once every 8 years for medium-risk customers and once every 10 years for low-risk customers.
+3 Regulated entities shall furnish Suspicious Transaction Reports to the Financial Intelligence Unit - India (FIU-IND) within 7 days of arriving at a conclusion that a transaction is suspicious.
+4 Regulated entities shall furnish monthly Cash Transaction Reports to FIU-IND under the Prevention of Money Laundering Act by the 15th day of the succeeding month.
+5 Regulated entities shall maintain all necessary records of transactions between the regulated entity and the customer for at least 5 years from the date of transaction.
+6 Regulated entities shall preserve records of the identification and address of customers for at least 5 years after the business relationship has ended.
+7 Regulated entities shall screen customers against the sanctions lists circulated under the Unlawful Activities (Prevention) Act and the UN Security Council before onboarding and on an ongoing basis.
+8 Regulated entities shall put in place a system of ongoing transaction monitoring to detect transactions that are unusual or inconsistent with the customer profile.

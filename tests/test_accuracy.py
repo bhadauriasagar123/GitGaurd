@@ -5,7 +5,16 @@ import os
 import pytest
 
 from app.firewall import ml
-from scripts.eval_accuracy import extraction, firewall, load, mapping_acc
+from scripts.eval_accuracy import extraction, firewall, load, mapping_acc, real_dataset
+
+
+def test_public_regulation_dataset_accuracy_floors():
+    """CERT-In / RBI / DPDP / GDPR pack scored end to end; every capability must stay at or above 80 %."""
+    x = real_dataset()
+    assert x["extractionF1"] >= 0.95 and x["attr"] >= 0.95, x["errors"]
+    assert x["mappingTop1"] >= 0.80 and x["gapDetection"] >= 0.80, x["errors"]
+    assert x["firewall"] == 1.0, x["errors"]  # genuine regulations are never flagged; the poisoned bulletin is always stopped
+    assert x["overall"] >= 0.85
 
 
 @pytest.mark.parametrize("name,fw_acc,fw_recall,fpr_max,f1,top1", [

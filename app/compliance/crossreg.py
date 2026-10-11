@@ -1,6 +1,8 @@
 """Features 13 & 14: cross-regulation intelligence and regulatory contradiction detection."""
 from __future__ import annotations
 
+import re
+
 from app.compliance import text as T
 from app.compliance.mapping import _expand
 
@@ -93,4 +95,31 @@ def contradictions(obls: list[dict]) -> list[dict]:
                 found.append({**base, "type": "DEADLINE_DIVERGENCE", "severity": "medium",
                               "explanation": f"Different deadlines for the same event: {T.humanize_hours(a['deadlineHours'])} ({a['regCode']}) vs {T.humanize_hours(b['deadlineHours'])} ({b['regCode']}).",
                               "resolution": f"Adopt the strictest ({T.humanize_hours(strict['deadlineHours'])}, {strict['regCode']}) as the internal standard so a single process satisfies both."})
+    found.extend(_retention_vs_erasure(obls))
     return found
+
+
+_ERASE = re.compile(r"\b(?:erase|erasure|delete|deletion)\b", re.I)
+_PERSONAL = re.compile(r"\b(?:customers?|personal\s+data|identification|data\s+subjects?|data\s+principals?)\b", re.I)
+
+
+def _retention_vs_erasure(obls: list[dict]) -> list[dict]:
+    """A statutory retention floor (e.g. 5-year KYC/AML record keeping) against a duty to erase personal data once its purpose
+    ends: not numerically contradictory, but both cannot be followed literally for the same customer records. One finding per
+    pair of regulations."""
+    keep = [o for o in obls if o["retentionMinHours"] and o["modality"] == "mandatory" and _PERSONAL.search(o["text"])]
+    erase = [o for o in obls if o["modality"] == "mandatory" and _ERASE.search(o["text"])]
+    out, seen = [], set()
+    for x in keep:
+        for y in erase:
+            pair = (x["regCode"], y["regCode"])
+            if x["regCode"] == y["regCode"] or pair in seen:
+                continue
+            seen.add(pair)
+            out.append({"between": [{"id": o["id"], "regCode": o["regCode"], "clause": o["clause"], "text": o["text"]} for o in (x, y)],
+                        "topics": ["data-retention"], "type": "RETENTION_ERASURE_TENSION", "severity": "medium",
+                        "explanation": f"{x['regCode']} {x['clause']} requires keeping customer records for at least {T.humanize_hours(x['retentionMinHours'])}, "
+                                       f"while {y['regCode']} {y['clause']} requires erasing personal data once its purpose ends or consent is withdrawn.",
+                        "resolution": "Treat the statutory retention period as a legal-obligation exception to erasure (privacy laws such as DPDP s.8(7) and "
+                                      "GDPR Art. 17(3)(b) allow retention required by law); restrict retained records to that purpose and erase them when the period ends."})
+    return out

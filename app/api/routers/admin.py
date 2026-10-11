@@ -1,6 +1,8 @@
 """Admin / platform endpoints: health, profile, sample data, audit trail, system info."""
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends, Request
 
 from app.api.deps import Principal, idempotent, rate_limit, require
@@ -47,14 +49,14 @@ async def put_profile(body: ProfileIn, request: Request, p: Principal = Depends(
     return await request.app.state.container.commands.dispatch(M.UpdateProfile(p.tenant, body.model_dump()))
 
 
-@router.post("/sample/load", summary="Load the illustrative demo dataset through the full firewalled pipeline (idempotent)")
-async def load_sample(request: Request, p: Principal = Depends(require("analyst")), _=Depends(rate_limit("heavy"))):
+@router.post("/sample/load", summary="Load a dataset through the full firewalled pipeline (idempotent). dataset=real: public-regulation pack; demo: fictional test fixture")
+async def load_sample(request: Request, dataset: Literal["demo", "real"] = "demo", p: Principal = Depends(require("analyst")), _=Depends(rate_limit("heavy"))):
     c = request.app.state.container
 
     async def run():
-        return 200, await c.commands.dispatch(M.LoadSample(p.tenant, p.label))
+        return 200, await c.commands.dispatch(M.LoadSample(p.tenant, p.label, dataset=dataset))
 
-    return await idempotent(request, p.tenant, "sample", {"sample": True}, run)
+    return await idempotent(request, p.tenant, "sample", {"sample": True, "dataset": dataset}, run)
 
 
 @router.post("/admin/reset", summary="Delete all tenant data")

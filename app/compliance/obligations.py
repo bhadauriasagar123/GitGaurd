@@ -12,6 +12,9 @@ _MANDATE = re.compile(r"\b(?:shall|must|(?:is|are)\s+required\s+to|(?:is|are)\s+
 _RECOMMEND = re.compile(r"\bshould\b|\bought\s+to\b|\b(?:is|are)\s+(?:advised|urged|expected)\s+to\b|\bmay\s+not\s+exceed\b|\b(?:is|are)\s+encouraged\b|\brecommended\b", re.I)
 _PENALTY = re.compile(r"\bpenalt|\bfine[sd]?\b|\bsanction|\brevo(?:ke|cation)\b|\bmonetary\s+penalt", re.I)
 _ACTOR = re.compile(r"^(?:the\s+|each\s+|every\s+|all\s+)?(.{3,70}?)\s+(?:shall|must|should)\b", re.I)
+# Topics describe what is required, so they are read from the modal verb onwards; the subject ("service providers, data centres ...")
+# only names who is bound and would otherwise skew mapping. Falls back to the full sentence when the predicate has no topic.
+_MODAL_AT = re.compile(r"\b(?:shall|must|should|(?:is|are)\s+required\s+to|has\s+to|have\s+to|needs?\s+to|obliged\s+to)\b", re.I)
 
 
 def split_clauses(text: str) -> list[tuple[str, str]]:
@@ -46,7 +49,8 @@ def extract_obligations(text: str, reg: dict) -> list[dict]:
                 modality, base = "recommended", 1.5
             else:
                 continue
-            topics = T.topics_of(sent) or T.topics_of(body)
+            pred = _MODAL_AT.search(sent)
+            topics = (T.topics_of(sent[pred.start():]) if pred else []) or T.topics_of(sent) or T.topics_of(body)
             am = _ACTOR.match(sent)
             ret = T.retention(sent)
             deadline = T.deadline_hours(sent)

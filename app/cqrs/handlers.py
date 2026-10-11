@@ -19,6 +19,7 @@ from app.firewall import egress
 from app.firewall.engine import spotlight
 from app.infra.redis_client import tenant_lock
 from app.sample import data as sample
+from app.sample import realworld
 
 log = get_logger("handlers")
 ASSISTANT_PROMPT = ("You are RegGuard, a banking regulatory compliance analyst. Answer ONLY from the structured findings supplied. "
@@ -300,9 +301,10 @@ class Handlers:
     async def load_sample(self, cmd: M.LoadSample) -> dict:
         if cmd.reset:
             await self.reset(M.ResetTenant(cmd.tenant))
-        await self.update_profile(M.UpdateProfile(cmd.tenant, sample.PROFILE))
+        pack = realworld if cmd.dataset == "real" else sample
+        await self.update_profile(M.UpdateProfile(cmd.tenant, pack.PROFILE))
         results = []
-        for d in sample.build():
+        for d in pack.build():
             r = await self.ingest(M.IngestDocument(cmd.tenant, cmd.actor, d["kind"], d["title"], d["sourceType"], d["content"], None, d.get("regulation")))
             results.append({"title": d["title"], "verdict": r["firewall"]["verdict"], "impact": r["impact"]["headline"] if r["impact"] else None})
         a = await self._analysis(cmd.tenant)

@@ -1,0 +1,10 @@
+CERT-In Directions under sub-section (6) of section 70B of the Information Technology Act, 2000
+CERT-In Directions No. 20(3)/2022 of 28 April 2022 on information security practices and the reporting of cyber incidents.
+Source: https://www.cert-in.org.in/Directions70B.jsp (operative requirements reproduced in summary form)
+
+1 All service providers, intermediaries, data centres, body corporates and Government organisations shall connect to the Network Time Protocol (NTP) server of the National Informatics Centre (NIC) or the National Physical Laboratory (NPL), or to NTP servers traceable to them, for synchronisation of all their ICT system clocks.
+2 Any service provider, intermediary, data centre, body corporate or Government organisation shall mandatorily report cyber incidents of the types listed in Annexure I to CERT-In within 6 hours of noticing such incidents or being brought to notice about such incidents.
+2.1 Reportable incident types include targeted scanning of critical networks, compromise of critical systems, unauthorised access of IT systems and data, ransomware, data breach, data leak and attacks on digital payment systems.
+3 Every entity shall designate a Point of Contact, such as the Chief Information Security Officer (CISO), to interface with CERT-In and shall keep the contact details updated with CERT-In.
+4 Every entity shall furnish information and provide assistance to CERT-In when directed, within the time frame specified in the direction, for cyber incident response and protective and preventive actions.
+5 All service providers, intermediaries, data centres, body corporates and Government organisations shall enable logs of all their ICT systems and maintain them securely for a rolling period of at least 180 days within the Indian jurisdiction.

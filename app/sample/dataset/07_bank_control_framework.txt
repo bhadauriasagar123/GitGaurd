@@ -1,0 +1,183 @@
+Control ID: CTL-01
+Title: NTP clock synchronisation
+Description: All servers, network devices, databases and ICT systems synchronise their clocks with the NIC and NPL Network Time Protocol (NTP) servers; clock drift is monitored and alerted.
+Owner: Head of IT Infrastructure
+Type: preventive
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-02
+Title: Cyber incident reporting to CERT-In and RBI
+Description: Cyber security incidents are triaged by the SOC, escalated to the CISO and reported to CERT-In and the Reserve Bank of India within 24 hours of detection.
+Owner: CISO
+Type: corrective
+Frequency: continuous
+Automation: manual
+
+Control ID: CTL-03
+Title: CERT-In point of contact
+Description: The CISO is designated as the Point of Contact with CERT-In; contact details are reviewed and updated with CERT-In, and CERT-In information requests are answered within the specified time frame.
+Owner: CISO
+Type: preventive
+Frequency: quarterly
+Automation: manual
+
+Control ID: CTL-04
+Title: ICT log collection and retention
+Description: Logs of all ICT systems are collected in the SIEM, stored securely within India and retained for a maximum of 90 days before purge.
+Owner: SOC Manager
+Type: detective
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-05
+Title: Board-approved cyber security policy
+Description: Cyber security policy and strategy to combat cyber threats approved by the Board and reviewed annually by the Board risk management committee.
+Owner: CISO
+Type: preventive
+Frequency: annually
+Automation: manual
+
+Control ID: CTL-06
+Title: 24x7 Cyber Security Operations Centre
+Description: The Cyber Security Operations Centre (C-SOC) monitors security events in the SIEM continuously and ingests threat intelligence on emerging cyber threats.
+Owner: SOC Manager
+Type: detective
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-07
+Title: Cyber Crisis Management Plan
+Description: Board-approved Cyber Crisis Management Plan to detect, respond to, recover from and contain cyber incidents, exercised through a crisis simulation drill.
+Owner: Chief Risk Officer
+Type: corrective
+Frequency: half-yearly
+Automation: manual
+
+Control ID: CTL-08
+Title: Privileged access management
+Description: Multi-factor authentication and least privilege enforced through the PAM vault for privileged and administrative access to critical systems; privileged access recertified by system owners.
+Owner: Head of IT Security
+Type: preventive
+Frequency: quarterly
+Automation: semi-automated
+
+Control ID: CTL-09
+Title: Vulnerability assessment and penetration testing
+Description: Vulnerability assessment and penetration testing of internet-facing applications, servers and network components by a CERT-In empanelled auditor, with tracked closure of findings.
+Owner: Head of IT Security
+Type: detective
+Frequency: half-yearly
+Automation: semi-automated
+
+Control ID: CTL-10
+Title: Third-party cyber risk management
+Description: Vendors and third-party service providers with access to bank systems are risk assessed before onboarding, sign cyber security clauses and are reassessed annually.
+Owner: Head of Vendor Risk
+Type: preventive
+Frequency: annually
+Automation: manual
+
+Control ID: CTL-11
+Title: Cyber security awareness training
+Description: Role-based cyber security awareness training for staff and the Board of Directors, plus customer awareness campaigns, with completion tracking.
+Owner: Head of HR
+Type: preventive
+Frequency: annually
+Automation: semi-automated
+
+Control ID: CTL-12
+Title: Customer due diligence at onboarding
+Description: KYC customer due diligence verifies the identity of every customer through Aadhaar e-KYC, V-CIP or officially valid documents before an account-based relationship begins.
+Owner: Chief Compliance Officer
+Type: preventive
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-13
+Title: Risk-based periodic KYC updation
+Description: Customers are risk categorised as low, medium or high; the KYC system schedules periodic updation every 2 years for high-risk, 8 years for medium-risk and 10 years for low-risk customers.
+Owner: Chief Compliance Officer
+Type: preventive
+Frequency: daily
+Automation: automated
+
+Control ID: CTL-14
+Title: Suspicious transaction reporting
+Description: Money laundering alerts are investigated by the AML unit and Suspicious Transaction Reports are filed with FIU-IND within 7 days of concluding that a transaction is suspicious.
+Owner: Principal Officer (AML)
+Type: detective
+Frequency: continuous
+Automation: semi-automated
+
+Control ID: CTL-16
+Title: Transaction and customer record retention
+Description: Transaction records and customer identification and address records are retained in the records archive for at least 8 years after the transaction date or the end of the business relationship.
+Owner: Head of Records Management
+Type: preventive
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-17
+Title: Sanctions screening
+Description: Customers are screened against the UN Security Council and UAPA sanctions lists before onboarding and the full customer base is re-screened daily.
+Owner: Chief Compliance Officer
+Type: preventive
+Frequency: daily
+Automation: automated
+
+Control ID: CTL-18
+Title: AML transaction monitoring
+Description: Transaction monitoring system with risk-based scenarios detects transactions that are unusual or inconsistent with the customer profile and raises alerts for investigation.
+Owner: Principal Officer (AML)
+Type: detective
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-19
+Title: Privacy notice and consent management
+Description: The consent manager presents a privacy notice in clear and plain language stating the personal data and purpose, records specific and informed consent so the Bank can demonstrate that the customer consented to processing of personal data, and lets customers withdraw consent at any time in the app.
+Owner: Data Protection Officer
+Type: preventive
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-20
+Title: Personal data breach notification
+Description: Personal data breaches are assessed by the DPO; the Data Protection Board and the supervisory authority are notified within 72 hours with a detailed report, and affected customers are informed without undue delay.
+Owner: Data Protection Officer
+Type: corrective
+Frequency: continuous
+Automation: manual
+
+Control ID: CTL-21
+Title: Encryption and masking of personal data
+Description: Personal data is encrypted at rest with AES-256 and in transit with TLS 1.2 or higher, masked or pseudonymised in non-production environments, and protected by role-based access control.
+Owner: Head of IT Infrastructure
+Type: preventive
+Frequency: continuous
+Automation: automated
+
+Control ID: CTL-22
+Title: Personal data erasure
+Description: Personal data is kept no longer than necessary for its purpose (storage limitation) and is erased when consent is withdrawn or the purpose is no longer served, unless a legal retention obligation applies; erasure jobs are logged.
+Owner: Data Protection Officer
+Type: corrective
+Frequency: monthly
+Automation: automated
+
+Control ID: CTL-23
+Title: Grievance redressal
+Description: Grievance redressal mechanism for data principals and customers with a published DPO contact, ticketing and resolution tracking.
+Owner: Head of Customer Service
+Type: corrective
+Frequency: continuous
+Automation: semi-automated
+
+Control ID: CTL-24
+Title: Verifiable parental consent for minors
+Description: Accounts of minors require verifiable consent of the parent or lawful guardian before any personal data of a child is processed.
+Owner: Head of Retail Banking
+Type: preventive
+Frequency: continuous
+Automation: manual
