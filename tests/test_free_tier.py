@@ -48,6 +48,7 @@ def test_blueprint_and_dockerignore_present_and_safe():
     env = {e["key"]: e for e in svc["envVars"]}
     for secret in ("DATABASE_URL", "REDIS_URL", "API_KEYS", "ENC_KEY"):
         assert env[secret].get("sync") is False and "value" not in env[secret], f"{secret} must not be stored in the blueprint"
+    assert env["REDIS_MAX_CONNECTIONS"]["value"] == "1"
     assert env["ENV"]["value"] == "production" and env["WEB_CONCURRENCY"]["value"] == "1" and env["DOCS_ENABLED"]["value"] == "false"
     ignored = open(".dockerignore", encoding="utf8").read()
     assert ".venv" in ignored and ".git" in ignored and ".env" in ignored

@@ -17,7 +17,7 @@ COPY static ./static
 COPY alembic.ini .
 COPY alembic ./alembic
 USER 10001
-ENV ENV=production PORT=8000 WEB_CONCURRENCY=2
+ENV ENV=production PORT=8000 WEB_CONCURRENCY=1 REDIS_MAX_CONNECTIONS=1
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=2).status==200 else 1)"
 CMD ["sh", "-c", "exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT} --workers ${WEB_CONCURRENCY} --no-server-header --proxy-headers --forwarded-allow-ips '*' --timeout-keep-alive 30 --timeout-graceful-shutdown 20"]

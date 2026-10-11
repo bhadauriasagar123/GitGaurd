@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     # Persistence: PostgreSQL (relational tables + JSONB document collections) and Redis.
     database_url: str = "sqlite+aiosqlite:///./regguard.db"
     redis_url: str = "fakeredis://"  # dev/test fallback; production requires a real Redis (rediss://...)
+    redis_max_connections: int = Field(1, ge=1, le=100)  # per process. 1 = one shared connection (free-tier friendly); commands queue
+    redis_pool_timeout_sec: float = Field(10.0, gt=0)  # how long a request waits for the connection before failing with 503
     db_pool_size: int = 5  # small defaults suit free-tier PostgreSQL connection limits (1 worker x (5+5) connections)
     db_max_overflow: int = 5
     db_pgbouncer: bool = False  # set true behind pgbouncer/transaction pooling (auto-detected for '-pooler' hosts, e.g. Neon)

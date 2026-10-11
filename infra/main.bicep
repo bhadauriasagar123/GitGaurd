@@ -79,7 +79,7 @@ resource web 'Microsoft.Web/sites@2023-12-01' = {
     clientAffinityEnabled: false
     siteConfig: {
       linuxFxVersion: 'PYTHON|3.12'
-      appCommandLine: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2 --no-server-header --proxy-headers --forwarded-allow-ips "*" --timeout-keep-alive 30 --timeout-graceful-shutdown 20'
+      appCommandLine: 'python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --no-server-header --proxy-headers --forwarded-allow-ips "*" --timeout-keep-alive 30 --timeout-graceful-shutdown 20'
       ftpsState: 'Disabled'
       minTlsVersion: '1.2'
       http20Enabled: true

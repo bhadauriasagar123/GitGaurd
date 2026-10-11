@@ -19,7 +19,7 @@ Goal: run the whole product, with PostgreSQL and Redis, for **$0** while you bui
 |---|---|---|---|
 | App hosting | **Render** free web service (Docker) | HTTPS + auto-deploy + health checks, no card needed for the free plan | sleeps after idle (first request slow); small RAM/CPU → `WEB_CONCURRENCY=1` |
 | PostgreSQL | **Neon** free | real PostgreSQL 16, JSONB, no expiry on the free tier | scales to zero (first query after idle takes a moment — the app waits up to 30 s); uses a pooler, which the app detects automatically |
-| Redis | **Upstash** free | TLS `rediss://`, serverless | daily command quota — each API request uses a few commands; fine for dev/demo, not for load tests |
+| Redis | **Upstash** free | TLS `rediss://`, serverless; the app uses **one** connection per process (`REDIS_MAX_CONNECTIONS=1`, commands queue on it) | daily command quota — each API request uses a few commands; fine for dev/demo, not for load tests |
 | CI/CD | **Azure DevOps Pipelines** (or GitHub Actions) | pipeline + agents already written | private projects need the free-parallelism request, or use a self-hosted agent |
 | LLM (optional) | none (built-in deterministic analyst) | zero cost, no hallucination | add Azure AI Foundry later for richer answers |
 | Secrets | host environment variables | never in git (`render.yaml` marks them `sync:false`) | rotate if leaked; no Key Vault yet |

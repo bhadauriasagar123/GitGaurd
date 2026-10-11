@@ -110,7 +110,7 @@ async def run(args) -> int:
             ver = " - redis " + (await r.info("server")).get("redis_version", "?")
         except Exception:  # noqa: BLE001
             pass
-        add(PASS if ok else FAIL, "Redis operations", f"PING + SET NX EX + GET + INCR ok - {ms:.0f} ms{ver}", "Check REDIS_URL (rediss:// for TLS) and the password")
+        add(PASS if ok else FAIL, "Redis operations", f"PING + SET NX EX + GET + INCR ok - {ms:.0f} ms{ver} - connection cap: {s.redis_max_connections} per process", "Check REDIS_URL (rediss:// for TLS) and the password")
     except Exception as e:  # noqa: BLE001
         add(FAIL, "Redis connection", f"{type(e).__name__}: {str(e)[:200]}", "Check REDIS_URL; Upstash needs rediss:// (two s) and the database password")
     await close_redis()

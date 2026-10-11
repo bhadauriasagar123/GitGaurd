@@ -30,8 +30,13 @@ async def get_redis():
         else:
             import redis.asyncio as aioredis
 
-            _client = aioredis.from_url(url, decode_responses=True, socket_timeout=5, socket_connect_timeout=5,
-                                        health_check_interval=30, retry_on_timeout=True)
+            s = get_settings()
+            # Hard cap on connections (default 1, for free Redis tiers): a BLOCKING pool makes concurrent requests queue for the
+            # single connection instead of opening new ones. If the queue wait exceeds the timeout the request fails with a 503.
+            pool = aioredis.BlockingConnectionPool.from_url(url, max_connections=s.redis_max_connections, timeout=s.redis_pool_timeout_sec,
+                                                            decode_responses=True, socket_timeout=5, socket_connect_timeout=5,
+                                                            health_check_interval=30, retry_on_timeout=True)
+            _client = aioredis.Redis(connection_pool=pool)
     return _client
 
 
