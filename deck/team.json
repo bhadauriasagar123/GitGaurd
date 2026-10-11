@@ -1,0 +1,11 @@
+{
+  "teamName": "RegGuard Shield",
+  "tagline": "Agentic banking compliance, shielded from prompt injection",
+  "members": [
+    {"name": "Your Name", "role": "Team lead, architecture and backend"},
+    {"name": "Teammate 2", "role": "Role / responsibility"}
+  ],
+  "repo": "github.com/bhadauriasagar123/GitGaurd",
+  "liveDemo": "regguard-staging.onrender.com",
+  "videoUrl": "paste your YouTube link here"
+}

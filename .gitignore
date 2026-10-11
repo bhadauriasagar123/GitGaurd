@@ -9,3 +9,4 @@ __pycache__/
 junit*.xml
 .claude/launch.json
 .claude/settings.local.json
+/.edgeprof/

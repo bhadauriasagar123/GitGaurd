@@ -40,7 +40,7 @@
 
 ## What the pipeline does
 
-`CI`: install → **409 tests** → **firewall quality gate** (fails on any missed attack/false positive) → bandit SAST → pip-audit CVE scan → secret scan → publish test + coverage → package.
+`CI`: install → **417 tests** → **firewall quality gate** (fails on any missed attack/false positive) → bandit SAST → pip-audit CVE scan → secret scan → publish test + coverage → package.
 `Deploy` (main only): Bicep (`infra/main.bicep`, idempotent: plan + web app + PostgreSQL + db) → zip deploy (Oryx installs `requirements.txt`) → smoke test against `/readyz`, which verifies **both PostgreSQL and Redis**.
 
 The app creates its tables on first start (`create_all`). For schema evolution add Alembic migrations before the first production release.
