@@ -157,3 +157,13 @@ async def test_smoke_stops_early_with_a_clear_message_when_keys_do_not_match(cli
     out = capsys.readouterr().out
     assert rc == 2 and "STOPPED: the keys you supplied do not match" in out and "rejected by the service (HTTP 401)" in out
     assert "Traceback" not in out and "KeyError" not in out
+
+
+def test_smoke_missing_env_file_gives_a_helpful_message_not_a_traceback(monkeypatch, tmp_path):
+    import pytest
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".env.local").write_text("X=1\n")
+    with pytest.raises(SystemExit) as e:
+        _load_smoke(monkeypatch, ["--env-file", ".env.STAGING"])
+    msg = str(e.value)
+    assert "does not exist" in msg and ".env.local" in msg and "gen_secrets --write" in msg

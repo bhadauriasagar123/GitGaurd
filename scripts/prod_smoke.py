@@ -19,6 +19,11 @@ def _api_keys_source() -> tuple[str, str]:
     argv = sys.argv[1:]
     if "--env-file" in argv:
         path = argv[argv.index("--env-file") + 1]
+        if not os.path.exists(path):
+            import glob
+            found = ", ".join(sorted(glob.glob(".env*"))) or "none"
+            raise SystemExit(f"The key file '{path}' does not exist (file names are exact). Env files in this folder: {found}.\n"
+                             f"Create one with:  python -m scripts.gen_secrets --write {path} --env production")
         for line in open(path, encoding="utf8"):
             if line.startswith("API_KEYS="):
                 return line.split("=", 1)[1].strip(), f"file {path}"
