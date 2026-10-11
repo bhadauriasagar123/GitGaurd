@@ -10,6 +10,11 @@ os.environ.update({
     "RATE_HEAVY": "100000",
 })
 
+# Hermetic: the suite must NEVER read a developer's real .env (it may hold live Neon/Upstash URLs and keys).
+from app.core.config import Settings  # noqa: E402
+
+Settings.model_config["env_file"] = None
+
 import httpx
 import pytest_asyncio
 

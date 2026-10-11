@@ -29,3 +29,18 @@ def test_weak_or_malformed_keys_rejected_in_production():
         prod(api_keys="k" * 24 + ":root:acme").key_ring()
     with pytest.raises(ValueError):
         prod(api_keys="k" * 24 + ":admin").key_ring()
+
+
+def test_suite_is_hermetic_and_never_reads_a_real_dotenv(tmp_path, monkeypatch):
+    """A developer's .env (live Neon/Upstash URLs, real keys) must not leak into tests."""
+    import os
+    from app.core.config import Settings, reset_settings_cache
+    (tmp_path / ".env").write_text("REDIS_URL=rediss://default:SECRET@live.upstash.io:6379\nDATABASE_URL=postgres://u:LIVEPASS@neon/db\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    reset_settings_cache()
+    s = Settings()
+    assert s.redis_url == "fakeredis://" and s.database_url.startswith("sqlite") and "LIVEPASS" not in s.database_url
+    assert Settings.model_config["env_file"] is None
+    reset_settings_cache()

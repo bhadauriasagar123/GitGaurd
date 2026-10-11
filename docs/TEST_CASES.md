@@ -1,6 +1,6 @@
 # Test cases & scenarios (everything is automated — nothing here needs manual testing)
 
-Run everything: `pytest -q` (388 cases, ~45 s) · firewall metrics: `python -m scripts.eval_firewall` · live black-box suite: `python -m scripts.prod_smoke` (36 checks) · results: [TEST_REPORT.md](TEST_REPORT.md).
+Run everything: `pytest -q` (409 cases, ~45 s) · firewall metrics: `python -m scripts.eval_firewall` · live black-box suite: `python -m scripts.prod_smoke` (37 checks) · results: [TEST_REPORT.md](TEST_REPORT.md).
 Test-ID → file: `P1-*` → `tests/test_scenarios_p1.py` (+ `test_compliance.py`), `P2-*` → `tests/test_scenarios_p2.py` (+ `test_firewall.py`), `PR-*` → `tests/test_production.py`, `API-*` → `tests/test_api.py`.
 
 ## A. Problem 1 – the 14 features (each has a dedicated test + the scenarios below)
@@ -115,7 +115,7 @@ Test-ID → file: `P1-*` → `tests/test_scenarios_p1.py` (+ `test_compliance.py
 
 ### Live rehearsal (no mocks of the HTTP layer)
 
-Production mode (`ENV=production`), **2 uvicorn worker processes**, **real PostgreSQL**, **real Redis protocol over TCP**, `scripts/prod_smoke.py` → **36/36 checks** (liveness, readiness, docs hidden, correlation id, security headers incl. no `Server` banner, RBAC, idempotent replay, score band, all GET endpoints, what-if, firewall battery, poisoned upload, copilot, 8 parallel ingests across workers, 50 concurrent requests with zero 5xx, audit chain after concurrency, rate-limit headers). Then workers restarted **and Redis wiped**: data, score and audit chain intact.
+Production mode (`ENV=production`), **2 uvicorn worker processes**, **real PostgreSQL**, **real Redis protocol over TCP**, `scripts/prod_smoke.py` → **37/37 checks** (liveness, readiness, docs hidden, correlation id, security headers incl. no `Server` banner, RBAC, idempotent replay, score band, all GET endpoints, what-if, firewall battery, poisoned upload, copilot, 8 parallel ingests across workers, 50 concurrent requests with zero 5xx, audit chain after concurrency, rate-limit headers). Then workers restarted **and Redis wiped**: data, score and audit chain intact.
 The same script runs automatically after every Azure deployment (see `azure-pipelines.yml`).
 
 ## D. Not covered / needs a real environment (be upfront)

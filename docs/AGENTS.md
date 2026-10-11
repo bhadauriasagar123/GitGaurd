@@ -7,7 +7,7 @@ Every step between "developer pushes" and "customers use it" is performed or rev
                ├─> PR Review Agent ────────┤   (comments on the PR; blocks on secrets / missing migration / injection-in-diff…)
                └─> Build + tests + SAST + CVE + secret scan ─> Build Review Agent ─┤
                                                                                    ▼
- develop / main ──────────────────────────────────────────────> Deploy Agent (staging) ─> smoke suite (36 checks)
+ develop / main ──────────────────────────────────────────────> Deploy Agent (staging) ─> smoke suite (37 checks)
                                                                                    │ pass
  main only ───> Release Gate Agent (GO / NO-GO with reasons) ─> HUMAN approval (Environment) ─> Deploy Agent (production) ─> smoke ─┐
                                                                                                                      fail ─> rollback

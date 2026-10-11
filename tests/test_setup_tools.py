@@ -134,3 +134,26 @@ def test_gen_secrets_does_not_print_keys_by_default(tmp_path, capsys):
 def test_gitignore_covers_every_env_variant():
     ig = open(".gitignore", encoding="utf8").read().splitlines()
     assert ".env" in ig and ".env.*" in ig and "!.env.example" in ig
+
+
+async def test_smoke_stops_early_with_a_clear_message_when_keys_do_not_match(client, monkeypatch, capsys, tmp_path):
+    """The staging confusion: keys from another environment must produce ONE clear explanation, not a traceback.
+    Runs in-process against the test app (same event loop, no threads, no sockets) so it cannot disturb other tests."""
+    import importlib
+    import sys
+
+    import httpx
+    wrong = tmp_path / "wrong.env"
+    wrong.write_text("API_KEYS=" + "z" * 32 + ":admin:t," + "y" * 32 + ":analyst:t," + "x" * 32 + ":viewer:t")
+    app = client._transport.app
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: real(transport=httpx.ASGITransport(app=app), base_url="http://svc", timeout=30))
+    monkeypatch.setenv("BASE", "http://svc")
+    monkeypatch.setattr(sys, "argv", ["prod_smoke", "--env-file", str(wrong)])
+    sys.modules.pop("scripts.prod_smoke", None)
+    smoke = importlib.import_module("scripts.prod_smoke")
+    rc = await smoke.main()
+    sys.modules.pop("scripts.prod_smoke", None)
+    out = capsys.readouterr().out
+    assert rc == 2 and "STOPPED: the keys you supplied do not match" in out and "rejected by the service (HTTP 401)" in out
+    assert "Traceback" not in out and "KeyError" not in out

@@ -58,6 +58,26 @@ async def main() -> int:
     async with httpx.AsyncClient(base_url=BASE, timeout=60) as c:
         r = await c.get("/healthz"); check("liveness", r.status_code == 200)
         r = await c.get("/readyz"); check("readiness (postgres+redis up)", r.status_code == 200 and r.json()["checks"] == {"postgres": "up", "redis": "up"}, r.text)
+        # Preflight: do the supplied keys match THIS service? A mismatch (stale keys, local .env instead of the service's keys, a truncated
+        # copy) makes every later check meaningless, so stop here with a clear explanation instead of a wall of failures.
+        rejected = []
+        for _role in ("admin", "analyst", "viewer"):
+            if not K[_role]:
+                rejected.append((_role, "no key supplied"))
+                continue
+            _r = await c.get("/api/v1/whoami", headers=H(_role))
+            if _r.status_code == 401:
+                rejected.append((_role, "rejected by the service (HTTP 401)"))
+            elif _r.status_code != 200 or _r.json().get("role") != _role:
+                rejected.append((_role, f"unexpected answer (HTTP {_r.status_code}) - is this the right service?"))
+        if rejected:
+            print("\nSTOPPED: the keys you supplied do not match the service at " + BASE)
+            for _role, why in rejected:
+                print(f"  - {_role}: {why}")
+            print("Use the SAME API_KEYS value that is saved in that service's environment (Render -> Environment -> API_KEYS).\n"
+                  "A local .env or keys from another environment will not work. Nothing was loaded or changed.")
+            return 2
+        check("supplied keys are accepted by the service (admin, analyst, viewer)", True)
         r = await c.get("/docs"); check("swagger hidden in production", r.status_code == 404, str(r.status_code))
         r = await c.get("/healthz", headers={"X-Correlation-ID": "smoke-trace-0001"})
         h = r.headers

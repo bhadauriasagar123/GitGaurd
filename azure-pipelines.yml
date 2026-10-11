@@ -197,7 +197,7 @@ stages:
                 - script: |
                     eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
                     BASE="$(STAGING_URL)" SMOKE_REPORT=smoke-staging.json python -m scripts.prod_smoke
-                  displayName: Staging smoke suite (36 checks)
+                  displayName: Staging smoke suite (37 checks)
                   env: { STAGING_API_KEYS: $(STAGING_API_KEYS) }
                 - publish: smoke-staging.json
                   artifact: smoke-staging

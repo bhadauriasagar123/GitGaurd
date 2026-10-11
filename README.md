@@ -20,7 +20,7 @@ untrusted input ─▶ [Firewall: extract▸normalise▸decode▸detect▸sessio
 python -m venv .venv && .venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
 uvicorn app.main:app --reload --no-server-header                            # http://localhost:8000  (dev key is pre-filled in the UI)
-pytest -q                                                # 388 tests
+pytest -q                                                # 409 tests
 python -m scripts.eval_firewall                          # firewall regression corpus
 python -m scripts.eval_accuracy all                      # gold-set accuracy (extraction / mapping / firewall)
 ```

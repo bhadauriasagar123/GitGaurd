@@ -51,12 +51,12 @@ uvicorn app.main:app --no-server-header
 python -m scripts.doctor --url http://localhost:8000
 ```
 ✔ doctor prints `READY` (healthz/readyz up, security headers present). Open the UI, paste the **analyst** key into the header, **Connect**, **Load demo dataset**.
-Optional full black-box check (36 checks, loads demo data into the analyst's tenant):
+Optional full black-box check (37 checks, loads demo data into the analyst's tenant):
 ```powershell
 $env:BASE="http://localhost:8000"; $env:ADMIN_KEY="<admin key>"; $env:ANALYST_KEY="<analyst key>"; $env:VIEWER_KEY="<viewer key>"
 python -m scripts.prod_smoke
 ```
-✔ `36/36 checks passed`. *(To rehearse production behaviour locally set `ENV=production` and `DOCS_ENABLED=false` in `.env`; the check “Swagger hidden” expects that.)*
+✔ `37/37 checks passed`. *(To rehearse production behaviour locally set `ENV=production` and `DOCS_ENABLED=false` in `.env`; the check “Swagger hidden” expects that.)*
 
 ## 6 · Put the code in a repository (5 min)
 Pick **one** (both pipelines are in the repo; use Azure DevOps if you want it, GitHub if you want zero wait):
@@ -118,4 +118,4 @@ Add **branch policies** on `main`/`develop`: require the pipeline (Azure DevOps 
 | `pip install` slow/ fails on Windows | Use Python 3.12 (not 3.13+) and an activated venv. |
 
 ## What was and was not verified
-Rehearsed end-to-end on this machine with real PostgreSQL 16 and a Redis-protocol server: secrets → `.env` → doctor → schema → Alembic → app started from `.env` only → 36/36 smoke → full test suite against those services (the same thing the CI *integration* job does). **Not exercised** against Neon, Upstash, Render, Azure DevOps or GitHub themselves — the doctor and smoke suite exist so the first real run tells you exactly what differs.
+Rehearsed end-to-end on this machine with real PostgreSQL 16 and a Redis-protocol server: secrets → `.env` → doctor → schema → Alembic → app started from `.env` only → 37/37 smoke → full test suite against those services (the same thing the CI *integration* job does). **Not exercised** against Neon, Upstash, Render, Azure DevOps or GitHub themselves — the doctor and smoke suite exist so the first real run tells you exactly what differs.
