@@ -21,6 +21,7 @@ The dataset (`app/sample/dataset/`) is built from public regulations: CERT-In Di
 **Terminal one-liners**
 
 ```bash
+python -m scripts.verify_problem_statements   # live matrix: P1 14/14 features, P2 9/9 attack classes x 11 input sources, P1xP2 integration (41 checks)
 pytest -q                          # 409 tests
 python -m scripts.eval_firewall    # 52/52 attacks, 0/20 false positives
 curl -s -H "Authorization: Bearer $KEY" -H "Idempotency-Key: demo-0001" -H "X-Correlation-ID: demo-trace-0001" \
