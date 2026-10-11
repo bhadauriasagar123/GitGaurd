@@ -39,6 +39,6 @@ Be explicit that D3 (heterogeneous multimodal) is *not* claimed: images are acce
 
 ## Questions judges may ask
 
-* **"Where is the AI?"** — The deterministic engine is the system of record (auditable, no hallucinated obligations). Foundry LLM (strategy pattern) is optional and only ever sees firewall-cleaned, structured findings; its output is egress-screened. Be candid that extraction is rule-based today and the LLM slot is where semantic extraction plugs in.
+* **"Where is the AI?"** — The deterministic engine is the system of record (auditable, no hallucinated obligations), with a learned intent model inside the firewall. The copilot uses an LLM (Groq `gpt-oss-120b` live; any OpenAI-compatible model or Azure AI Foundry via the strategy pattern) that only ever sees firewall-cleaned, structured findings; its output is egress-screened and it falls back to the deterministic analyst if the model is unavailable. Be candid that obligation extraction is rule-based today and the LLM slot is where semantic extraction plugs in.
 * **"Can the firewall be bypassed?"** — Yes in principle (heuristics). Mitigations: canonicalisation + recursive decoding, hidden-channel awareness, session memory, least-privilege (no tools), egress guard, canaries, quarantine + audit. Roadmap: Azure AI Content Safety Prompt Shields as a second signal.
 * **"Why monolith?"** — Time-boxed delivery, one deploy, strict layering so modules split cleanly later.

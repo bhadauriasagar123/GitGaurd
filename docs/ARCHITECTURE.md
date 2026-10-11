@@ -29,7 +29,7 @@ flowchart LR
   subgraph Infra
     PG[(PostgreSQL: tables + JSONB)]
     RD[(Redis)]
-    LLM[LLM strategy: Azure AI Foundry / offline]
+    LLM[LLM strategy: OpenAI-compatible e.g. Groq gpt-oss-120b / Azure AI Foundry / offline analyst + automatic fallback]
   end
   UI --> Edge --> API --> App
   CB --> SAN
@@ -61,7 +61,7 @@ flowchart LR
 | **Repository** | `infra/repositories/*` (documents, audit, docstore) | persistence hidden from handlers; tenant isolation enforced at the repository |
 | **Unit of Work** | `infra/uow.py` | one transaction across repositories (doc + audit commit atomically) |
 | **Strategy** | `firewall/extract.py` (per-source extractors), `firewall/decode.py` (decoder set), `firewall/rules.py` (per-class rules), `llm/providers.py` | add a source/decoder/rule/model without touching the engine |
-| **Factory** | `llm/factory.build_provider`, `container.build_container` | choose Foundry vs offline from config |
+| **Factory** | `llm/factory.build_provider`, `container.build_container` | choose an OpenAI-compatible model (Groq, GitHub Models, Gemini, Ollama), Foundry, or the offline analyst from config |
 | **Mediator / CQRS** | `cqrs/bus.py` + `handlers.py` | writes (PostgreSQL) separated from reads (Redis-cached snapshots) |
 | **Domain events / Observer** | `cqrs/bus.EventBus` | decouple "ingested" from monitoring/notifications |
 | **Pipeline / Chain of responsibility** | firewall stages; compliance `analyze()` | each stage has one job and is unit-tested |
@@ -94,13 +94,13 @@ Commands write PostgreSQL. Queries read an **analysis snapshot** in Redis keyed 
 ## Reliability & failure behaviour
 
 * Redis down → readiness `503`, rate-limit/idempotency fail closed (requests error rather than bypass safety). PostgreSQL down → `503` via readiness; transactions roll back via the Unit of Work.
-* LLM provider error → `503 DEPENDENCY_UNAVAILABLE` (typed), never a raw stack trace; offline deterministic analyst needs no external dependency.
+* LLM provider error, timeout or rate limit → the copilot answers from the offline deterministic analyst and labels the answer `offline-fallback`; provider errors are typed and never leak keys, hosts or stack traces.
 * Failed idempotent attempts release the key so clients can retry.
 * Concurrent identical requests: one executes, others get `409` (+`Retry-After`) or the replayed result.
 
 ## Self-assessment on the 3×3 grid (for the submission)
 
-* **Problem 1 – Features: F3** (all 14 of 14 implemented; threshold is 8). **Depth: D2** — structured/textual input with demonstrable reliability (deterministic engine, 409 automated tests incl. one per feature, evidence-gated status, explainable scores). We do *not* claim D3: images/audio are only handled as OCR text and scanned PDFs are not OCR'd by us.
+* **Problem 1 – Features: F3** (all 14 of 14 implemented; threshold is 8). **Depth: D2** — structured/textual input with demonstrable reliability (deterministic engine, 427 automated tests incl. one per feature, evidence-gated status, explainable scores, measured accuracy on a public-regulation dataset: `python -m scripts.eval_accuracy real`, live requirement matrix: `python -m scripts.verify_problem_statements`). We do *not* claim D3: images/audio are only handled as OCR text and scanned PDFs are not OCR'd by us.
 * **Problem 2 – Features: F3** (9 of 9 attack classes; threshold is 7). **Depth: D2** — textual sources plus hidden channels, measured on a labelled corpus. D3 (true multimodal) is not claimed: image content is accepted only as OCR text.
 * Supporting features embedded: observability (correlation ids, structured logs, agent traces, audit chain), fault tolerance (idempotency, locks, typed errors, health probes), security (below), traceability, explainability.
 
@@ -108,4 +108,4 @@ Commands write PostgreSQL. Queries read an **analysis snapshot** in Redis keyed 
 
 * Obligation extraction and mapping are lexical/heuristic; they are fast, deterministic and explainable but will miss highly implicit obligations. The `LLMProvider` strategy is the extension point for an Azure AI Foundry model to *propose* richer extractions — which would still pass through the firewall and be validated by the deterministic engine.
 * The firewall is rule-based; novel semantic injections can evade it. It is one layer among several.
-* Sample regulations are fictional extracts for the demo, not legal text.
+* The demo dataset (`app/sample/dataset/`) summarises the operative requirements of public regulations (CERT-In 2022, RBI CSF 2016, RBI KYC MD, DPDP Act 2023 + Rules 2025, GDPR); it is not verbatim legal text. The bank control framework and evidence register are representative, not a real bank's data.
