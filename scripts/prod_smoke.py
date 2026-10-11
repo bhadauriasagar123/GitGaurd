@@ -3,7 +3,8 @@
     BASE=https://<app>.azurewebsites.net ADMIN_KEY=... ANALYST_KEY=... VIEWER_KEY=... python -m scripts.prod_smoke
 
 It talks HTTP only (no imports of app internals), so it validates exactly what judges/users will hit.
-Exit code 0 = every check passed. Uses throw-away regulation codes; run it against a demo tenant, not live data."""
+Exit code 0 = every check passed. It resets the tenant and loads the public-regulation dataset (and reloads it at the end, so the
+tenant is left demo-ready): never point it at a tenant holding real bank data."""
 import asyncio
 import os
 import sys
@@ -92,10 +93,10 @@ async def main() -> int:
         r = await c.post("/api/v1/firewall/scan", headers=H("viewer"), json={"content": "x"}); check("viewer cannot scan (RBAC)", r.status_code == 403)
         r = await c.get("/api/v1/audit", headers=H("analyst")); check("analyst cannot read audit (RBAC)", r.status_code == 403)
 
-        # idempotent sample load, replay
+        # idempotent load of the public-regulation dataset (resets the tenant), replay
         key = "smoke-" + uuid.uuid4().hex[:12]
-        r1 = await c.post("/api/v1/sample/load", headers=H("analyst", **{"Idempotency-Key": key}))
-        r2 = await c.post("/api/v1/sample/load", headers=H("analyst", **{"Idempotency-Key": key}))
+        r1 = await c.post("/api/v1/sample/load?dataset=real", headers=H("analyst", **{"Idempotency-Key": key}))
+        r2 = await c.post("/api/v1/sample/load?dataset=real", headers=H("analyst", **{"Idempotency-Key": key}))
         check("sample load succeeds", r1.status_code == 200, r1.text[:200])
         check("idempotent replay (same body, no re-execution)", r2.status_code == 200 and r2.headers.get("idempotent-replay") == "true" and r1.json() == r2.json())
         s = (await c.get("/api/v1/analysis/summary", headers=H("viewer"))).json()
@@ -104,7 +105,8 @@ async def main() -> int:
         for path in ("/api/v1/obligations", "/api/v1/controls", "/api/v1/assessments", "/api/v1/gaps", "/api/v1/changes", "/api/v1/impact",
                      "/api/v1/cross-regulation", "/api/v1/contradictions", "/api/v1/monitoring/trend", "/api/v1/firewall/catalog"):
             r = await c.get(path, headers=H("viewer")); check(f"GET {path}", r.status_code == 200 and bool(r.json()), str(r.status_code))
-        w = await c.post("/api/v1/whatif", headers=H("analyst"), json={"changes": [{"type": "update_control", "controlId": "C-04", "frequency": "monthly"}]})
+        w = await c.post("/api/v1/whatif", headers=H("analyst"), json={"changes": [{"type": "update_control", "controlId": "CTL-02",
+                         "description": "Cyber security incidents are reported to CERT-In and the Reserve Bank of India within 4 hours of detection."}]})
         check("what-if simulation", w.status_code == 200 and w.json()["deltaScore"] > 0, w.text[:150])
 
         # firewall battery
@@ -144,6 +146,9 @@ async def main() -> int:
               str({k: v.get(k) for k in ("valid", "entries", "brokenAtSeq", "diagnosis", "hint") if k in v}))
         r = await c.get("/api/v1/documents", headers=H("viewer"))
         check("rate-limit headers present", "ratelimit-remaining" in r.headers)
+        # leave the tenant demo-ready: drop the throw-away smoke regulations by reloading the regulatory dataset
+        r = await c.post("/api/v1/sample/load?dataset=real", headers=H("analyst", **{"Idempotency-Key": "smoke-" + uuid.uuid4().hex[:12]}))
+        check("tenant restored to the regulatory dataset", r.status_code == 200, r.text[:150])
     failed = [r for r in results if not r[1]]
     print(f"\n{len(results) - len(failed)}/{len(results)} checks passed")
     report = os.environ.get("SMOKE_REPORT")  # machine-readable result for the Release Gate Agent
