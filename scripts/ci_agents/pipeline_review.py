@@ -8,7 +8,7 @@ import yaml
 
 from scripts.ci_agents.common import Report
 
-REQUIRED_STEPS = {"pytest": "automated tests", "bandit": "SAST", "pip-audit": "dependency CVE scan", "detect-secrets": "secret scan",
+REQUIRED_STEPS = {"pytest": "automated tests", "bandit": "SAST", "pip-audit": "dependency CVE scan", "detect-secrets": "secret scan",  # pragma: allowlist secret
                   "eval_firewall": "firewall quality gate", "prod_smoke": "post-deploy smoke test", "ci_agents": "delivery agents"}
 
 

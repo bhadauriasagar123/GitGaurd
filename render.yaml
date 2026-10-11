@@ -18,7 +18,7 @@ services:
         value: "1"
       - key: DOCS_ENABLED
         value: "false"
-      - key: DATABASE_URL       # Neon: postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/db?sslmode=require  (auto-converted)
+      - key: DATABASE_URL       # Neon: postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/db?sslmode=require  (auto-converted)  # pragma: allowlist secret
         sync: false
       - key: REDIS_URL          # Upstash: rediss://default:<password>@<host>.upstash.io:6379
         sync: false

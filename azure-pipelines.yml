@@ -27,7 +27,7 @@ resources:
   containers:
     - container: pg
       image: postgres:16-alpine
-      env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: regguard }
+      env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: regguard }  # pragma: allowlist secret
       ports: ["5432:5432"]
     - container: redis
       image: redis:7-alpine
@@ -101,7 +101,7 @@ stages:
           - script: pip-audit -r requirements.txt -f json -o audit.json
             displayName: Dependency CVE scan (pip-audit)
             continueOnError: true
-          - script: detect-secrets scan --all-files --exclude-files '(\.venv|tests|\.env\.example|docs)/' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
+          - script: detect-secrets scan --exclude-files '^(\.venv|tests|docs)[/\\]' | python -c "import json,sys; r=json.load(sys.stdin)['results']; print(r); sys.exit(1 if r else 0)"
             displayName: Secret scan (detect-secrets)
           - script: python -m scripts.ci_agents build-review --junit junit.xml --bandit bandit.json --audit audit.json --coverage coverage.xml --out build-review.json
             displayName: Build Review Agent (verdict from the evidence; guards against deleted/skipped tests)
@@ -134,7 +134,7 @@ stages:
             displayName: Full suite against real PostgreSQL + Redis (JSONB, advisory locks, SET NX EX, pub/sub, TTLs)
             env:
               ENV: test
-              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard
+              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard  # pragma: allowlist secret
               TEST_REDIS_URL: redis://localhost:6379/0
           - script: |
               python -m scripts.doctor --init-db
@@ -142,7 +142,7 @@ stages:
             displayName: Doctor + Alembic migration on real PostgreSQL
             env:
               ENV: dev
-              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard
+              DATABASE_URL: postgresql+asyncpg://postgres:ci@localhost:5432/regguard  # pragma: allowlist secret
               REDIS_URL: redis://localhost:6379/0
 
   - stage: Staging

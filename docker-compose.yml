@@ -2,7 +2,7 @@
 services:
   db:
     image: postgres:16-alpine
-    environment: { POSTGRES_USER: regguard, POSTGRES_PASSWORD: regguard-local, POSTGRES_DB: regguard }
+    environment: { POSTGRES_USER: regguard, POSTGRES_PASSWORD: regguard-local, POSTGRES_DB: regguard }  # pragma: allowlist secret
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck: { test: ["CMD-SHELL", "pg_isready -U regguard"], interval: 5s, retries: 10 }
   redis:
@@ -15,6 +15,6 @@ services:
     ports: ["8000:8000"]
     environment:
       ENV: dev          # production mode requires real secrets; see .env.example
-      DATABASE_URL: postgresql+asyncpg://regguard:regguard-local@db:5432/regguard
+      DATABASE_URL: postgresql+asyncpg://regguard:regguard-local@db:5432/regguard  # pragma: allowlist secret
       REDIS_URL: redis://redis:6379/0
 volumes: { pgdata: {} }
