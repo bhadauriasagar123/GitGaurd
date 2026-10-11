@@ -15,6 +15,13 @@ import httpx
 from scripts.ci_agents.common import Report
 
 
+def _env(name: str) -> str | None:
+    """Env var value, or None when unset/empty/an UNEXPANDED pipeline macro like '$(NAME)' (Azure DevOps leaves undefined
+    variables as literal text, which must never be treated as a URL)."""
+    v = (os.environ.get(name) or "").strip()
+    return None if not v or (v.startswith("$(") and v.endswith(")")) else v
+
+
 class Target:
     name = "abstract"
 
@@ -52,7 +59,7 @@ class Webhook(Target):
     name = "webhook"
 
     def _post(self, url_var: str, execute: bool, log: list[str]):
-        url = os.environ.get(url_var)
+        url = _env(url_var)
         log.append(("POST " if execute else "PLAN POST ") + f"${url_var}" + ("" if url else " (NOT SET)"))
         if execute:
             if not url:
@@ -63,7 +70,7 @@ class Webhook(Target):
         self._post("DEPLOY_HOOK_URL", execute, log)
 
     def rollback(self, execute, log):
-        if os.environ.get("ROLLBACK_HOOK_URL"):
+        if _env("ROLLBACK_HOOK_URL"):
             self._post("ROLLBACK_HOOK_URL", execute, log)
         else:
             log.append("NOTE no ROLLBACK_HOOK_URL: roll back from the host's dashboard (previous deploy)")

@@ -86,7 +86,7 @@ Create **two** Render services (staging from branch `develop`, production from `
 
 | Variable / secret | Value |
 |---|---|
-| `DEPLOY_TARGET` (Azure DevOps group) | `webhook` |
+| *(no DEPLOY_TARGET variable needed)* | The pipeline defaults to the free `webhook` target through a compile-time parameter `deployTarget`; only choose `azure-webapp` (and give `azureServiceConnection`) when you have an Azure subscription. |
 | `STAGING_URL`, `PROD_URL` | the two `https://…onrender.com` URLs |
 | `STAGING_DEPLOY_HOOK_URL`, `PROD_DEPLOY_HOOK_URL` | the two deploy hooks |
 | `STAGING_API_KEYS`, `PROD_API_KEYS` | each service's `API_KEYS` string (`key:role:tenant,…`) |

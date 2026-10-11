@@ -258,3 +258,46 @@ def test_keys_helper_extracts_roles_without_leaking_format_errors():
     env = {**os.environ, "PYTHONPATH": ".", "K": "a1:admin:t,b2:analyst:t,junk,c3:viewer:t,d4:root:t"}
     r = subprocess.run([sys.executable, "-m", "scripts.ci_agents.keys", "K"], capture_output=True, text=True, env=env)
     assert r.stdout.split("\n")[:3] == ["export ADMIN_KEY=a1", "export ANALYST_KEY=b2", "export VIEWER_KEY=c3"]
+
+
+# ------------------------------------------------------------------ free-path pipeline must not need an Azure subscription
+def _compiled(params=None):
+    import yaml
+    from scripts.ci_agents import yamlexpand
+    doc = yaml.safe_load(open("azure-pipelines.yml", encoding="utf8"))
+    p = {**yamlexpand.defaults(doc), **(params or {})}
+    return yamlexpand.expand(doc, p), yamlexpand
+
+
+def test_default_pipeline_has_no_azure_service_connection_and_deploys_via_webhook():
+    doc, yx = _compiled()
+    assert list(yx.find_values(doc, "azureSubscription")) == []        # nothing for Azure DevOps to reject at parse time
+    text = str(doc)
+    assert "AzureCLI@2" not in text and "--target webhook" in text and "azure-webapp --base" not in text
+
+
+def test_azure_target_adds_azure_steps_with_the_given_connection_only():
+    doc, yx = _compiled({"deployTarget": "azure-webapp", "azureServiceConnection": "my-arm-connection"})
+    subs = list(yx.find_values(doc, "azureSubscription"))
+    assert subs and set(subs) == {"my-arm-connection"} and "--target webhook" not in str(doc)
+
+
+def test_pipeline_review_blocks_azure_connection_on_default_path(tmp_path):
+    bad = open("azure-pipelines.yml", encoding="utf8").read().replace("default: webhook", "default: azure-webapp")
+    p = tmp_path / "p.yml"
+    p.write_text(bad, encoding="utf8")
+    assert "azure-connection-on-default-path" in rules(pipeline_review.review(str(p)))
+    var = tmp_path / "v.yml"
+    var.write_text(open("azure-pipelines.yml", encoding="utf8").read().replace("azureSubscription: ${{ parameters.azureServiceConnection }}", "azureSubscription: $(AZURE_SERVICE_CONNECTION)", 1), encoding="utf8")
+    assert "azure-connection-variable" in rules(pipeline_review.review(str(var)))
+
+
+def test_unexpanded_pipeline_macros_are_not_treated_as_urls(monkeypatch):
+    monkeypatch.setenv("DEPLOY_HOOK_URL", "$(STAGING_DEPLOY_HOOK_URL)")   # what Azure DevOps passes when the variable is undefined
+    monkeypatch.setenv("ROLLBACK_HOOK_URL", "$(STAGING_ROLLBACK_HOOK_URL)")
+    assert deploy_agent._env("DEPLOY_HOOK_URL") is None and deploy_agent._env("ROLLBACK_HOOK_URL") is None
+    rep = deploy_agent.run("webhook", None, execute=True)
+    assert "deploy-failed" in rules(rep) and "DEPLOY_HOOK_URL is not set" in rep.findings[0].message
+    assert "no ROLLBACK_HOOK_URL" in rep.facts["log"]            # falls back to manual-rollback guidance instead of POSTing garbage
+    monkeypatch.setenv("DEPLOY_HOOK_URL", "https://api.render.com/deploy/srv-1?key=abc")
+    assert deploy_agent._env("DEPLOY_HOOK_URL").startswith("https://")

@@ -30,6 +30,16 @@ def review(pipeline_path: str = "azure-pipelines.yml", bicep_path: str = "infra/
     except yaml.YAMLError as e:
         r.add("block", "invalid-yaml", f"Pipeline YAML does not parse: {e}")
         return r
+    # What Azure DevOps validates with the DEFAULT parameters. Service connections are checked at PARSE time, so a runtime
+    # `condition:` does not make an Azure-only step safe on the free path: it must be inside a compile-time `${{ if }}` block.
+    from scripts.ci_agents import yamlexpand
+    compiled = yamlexpand.expand(doc, yamlexpand.defaults(doc))
+    for sub in yamlexpand.find_values(compiled, "azureSubscription"):
+        r.add("block", "azure-connection-on-default-path",
+              f"Default parameters still reference an Azure service connection ({str(sub)[:40] or 'empty'}). Parsing fails without one. Wrap Azure-only steps in `${{{{ if eq(parameters.deployTarget, 'azure-webapp') }}}}:` and default to the free target.")
+    for sub in yamlexpand.find_values(doc, "azureSubscription"):
+        if "$(" in str(sub):
+            r.add("block", "azure-connection-variable", "azureSubscription must not be a $(variable): it is resolved too late for parse-time validation. Use a compile-time parameter.")
     steps = [s for n in _walk(doc) for s in (n.get("steps") or []) if isinstance(s, dict)]
     scripts = "\n".join(str(s.get("script") or s.get("bash") or s.get("inlineScript") or (s.get("inputs") or {}).get("inlineScript") or "") for s in steps)
     r.facts.update(stages=len(doc.get("stages", [])), steps=len(steps))

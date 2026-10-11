@@ -34,7 +34,7 @@ Every step between "developer pushes" and "customers use it" is performed or rev
 
 1. **Azure DevOps** → new Project → push the repo. **Pipelines → New → existing YAML → `azure-pipelines.yml`.**
 2. **Library → variable group `regguard-secrets`** (mark secrets):
-   `DEPLOY_TARGET` (`azure-webapp` or `webhook`), `STAGING_URL`, `PROD_URL`, `STAGING_API_KEYS`, `PROD_API_KEYS`, plus for `webhook`: `STAGING_DEPLOY_HOOK_URL`, `PROD_DEPLOY_HOOK_URL` (and optional `*_ROLLBACK_HOOK_URL`); for `azure-webapp`: `AZURE_SERVICE_CONNECTION`, `RESOURCE_GROUP`, `LOCATION`, `STAGING_WEBAPP_NAME`, `PROD_WEBAPP_NAME`, `STAGING_PG_PASSWORD`, `STAGING_REDIS_URL`, `STAGING_ENC_KEY`; optional `FOUNDRY_ENDPOINT`, `FOUNDRY_KEY` (enables the advisory LLM reviewer).
+   `STAGING_URL`, `PROD_URL`, `STAGING_API_KEYS`, `PROD_API_KEYS`, plus for `webhook`: `STAGING_DEPLOY_HOOK_URL`, `PROD_DEPLOY_HOOK_URL` (and optional `*_ROLLBACK_HOOK_URL`); for `azure-webapp`: `AZURE_SERVICE_CONNECTION`, `RESOURCE_GROUP`, `LOCATION`, `STAGING_WEBAPP_NAME`, `PROD_WEBAPP_NAME`, `STAGING_PG_PASSWORD`, `STAGING_REDIS_URL`, `STAGING_ENC_KEY`; optional `FOUNDRY_ENDPOINT`, `FOUNDRY_KEY` (enables the advisory LLM reviewer).
 3. **Pipelines → Environments:** create `regguard-staging` and `regguard-prod`; on `regguard-prod` add **Approvals** (and optionally a *Business hours* check).
 4. **Repos → Branches → Branch policies** for `main` and `develop`: **Build validation** = this pipeline (required), **minimum reviewers**, **comment resolution**, and add the repo's `CODEOWNERS`-style reviewers for the security-sensitive paths.
 5. **Grant the build identity "Contribute to pull requests"** (Repos → Security) so the PR Review Agent can post its comment with `System.AccessToken`.

@@ -7,6 +7,17 @@
 # Agents are deterministic gates (they can fail the build); the optional LLM reviewer is advisory only. Production always
 # keeps a HUMAN approval (Environment check). Free tier: 1 free Microsoft-hosted job for public projects (request the grant for
 # private ones) or use a self-hosted agent (`pool: { name: <your-pool> }`). See docs/DEPLOYMENT.md and docs/AGENTS.md.
+parameters:
+  # Compile-time switch. Default 'webhook' = free path (Render/Railway/... deploy hook): NO Azure subscription or service connection needed.
+  # Choose 'azure-webapp' (and give a service connection) only when you have an Azure subscription.
+  - name: deployTarget
+    type: string
+    default: webhook
+    values: [webhook, azure-webapp]
+  - name: azureServiceConnection
+    type: string
+    default: ''
+
 trigger:
   branches: { include: [main, develop] }
 pr:
@@ -23,7 +34,7 @@ resources:
       ports: ["6379:6379"]
 
 variables:
-  - group: regguard-secrets   # DEPLOY_TARGET (azure-webapp | webhook), STAGING_URL, PROD_URL, STAGING_API_KEYS, PROD_API_KEYS, + Azure/host vars
+  - group: regguard-secrets   # STAGING_URL, PROD_URL, STAGING_API_KEYS, PROD_API_KEYS, + Azure/host vars
   - name: PYTHON_VERSION
     value: '3.12'
 
@@ -152,36 +163,37 @@ stages:
                   inputs: { versionSpec: '$(PYTHON_VERSION)' }
                 - script: pip install -q -r requirements-dev.txt
                   displayName: Install
-                - task: AzureCLI@2
-                  displayName: Provision Azure infrastructure (only when DEPLOY_TARGET=azure-webapp)
-                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
-                  inputs:
-                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
-                      az group create -n "$(RESOURCE_GROUP)" -l "$(LOCATION)" -o none
-                      az deployment group create -g "$(RESOURCE_GROUP)" -f infra/main.bicep -o none \
-                        -p appName="$(STAGING_WEBAPP_NAME)" pgAdminPassword="$(STAGING_PG_PASSWORD)" redisUrl="$(STAGING_REDIS_URL)" \
-                           apiKeys="$(STAGING_API_KEYS)" encKey="$(STAGING_ENC_KEY)" foundryEndpoint="$(FOUNDRY_ENDPOINT)" foundryKey="$(FOUNDRY_KEY)"
-                - task: AzureCLI@2
-                  displayName: Deploy Agent (azure-webapp)
-                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
-                  inputs:
-                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
+                # ---- Azure-only steps exist ONLY when deployTarget=azure-webapp (compile-time `if`). Azure DevOps validates
+                # service connections while PARSING the YAML, so a runtime `condition:` is not enough on the free (no-Azure) path.
+                - ${{ if eq(parameters.deployTarget, 'azure-webapp') }}:
+                  - task: AzureCLI@2
+                    displayName: Provision Azure infrastructure (Bicep)
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        az group create -n "$(RESOURCE_GROUP)" -l "$(LOCATION)" -o none
+                        az deployment group create -g "$(RESOURCE_GROUP)" -f infra/main.bicep -o none \
+                          -p appName="$(STAGING_WEBAPP_NAME)" pgAdminPassword="$(STAGING_PG_PASSWORD)" redisUrl="$(STAGING_REDIS_URL)" \
+                             apiKeys="$(STAGING_API_KEYS)" encKey="$(STAGING_ENC_KEY)" foundryEndpoint="$(FOUNDRY_ENDPOINT)" foundryKey="$(FOUNDRY_KEY)"
+                  - task: AzureCLI@2
+                    displayName: Deploy Agent (azure-webapp)
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
+                        PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(STAGING_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
+                          python -m scripts.ci_agents deploy --target azure-webapp --base "$(STAGING_URL)" --execute --out deploy-staging.json
+                    env: { STAGING_API_KEYS: $(STAGING_API_KEYS), SMOKE_REPORT: smoke-staging.json }
+                - ${{ if ne(parameters.deployTarget, 'azure-webapp') }}:
+                  - script: |
                       eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
-                      PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(STAGING_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
-                        python -m scripts.ci_agents deploy --target azure-webapp --base "$(STAGING_URL)" --execute --out deploy-staging.json
-                  env: { STAGING_API_KEYS: $(STAGING_API_KEYS), SMOKE_REPORT: smoke-staging.json }
-                - script: |
-                    eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
-                    python -m scripts.ci_agents deploy --target webhook --base "$(STAGING_URL)" --execute --out deploy-staging.json
-                  displayName: Deploy Agent (webhook host)
-                  condition: ne(variables['DEPLOY_TARGET'], 'azure-webapp')
-                  env: { STAGING_API_KEYS: $(STAGING_API_KEYS), DEPLOY_HOOK_URL: $(STAGING_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(STAGING_ROLLBACK_HOOK_URL), SMOKE_REPORT: smoke-staging.json }
+                      python -m scripts.ci_agents deploy --target webhook --base "$(STAGING_URL)" --execute --out deploy-staging.json
+                    displayName: Deploy Agent (webhook host - Render, Railway, ...)
+                    env: { STAGING_API_KEYS: $(STAGING_API_KEYS), DEPLOY_HOOK_URL: $(STAGING_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(STAGING_ROLLBACK_HOOK_URL), SMOKE_REPORT: smoke-staging.json }
                 - script: |
                     eval "$(python -m scripts.ci_agents.keys STAGING_API_KEYS)"
                     BASE="$(STAGING_URL)" SMOKE_REPORT=smoke-staging.json python -m scripts.prod_smoke
@@ -229,21 +241,21 @@ stages:
                   inputs: { versionSpec: '$(PYTHON_VERSION)' }
                 - script: pip install -q -r requirements-dev.txt
                   displayName: Install
-                - task: AzureCLI@2
-                  displayName: Deploy Agent (azure-webapp)
-                  condition: eq(variables['DEPLOY_TARGET'], 'azure-webapp')
-                  inputs:
-                    azureSubscription: $(AZURE_SERVICE_CONNECTION)
-                    scriptType: bash
-                    scriptLocation: inlineScript
-                    inlineScript: |
+                - ${{ if eq(parameters.deployTarget, 'azure-webapp') }}:
+                  - task: AzureCLI@2
+                    displayName: Deploy Agent (azure-webapp)
+                    inputs:
+                      azureSubscription: ${{ parameters.azureServiceConnection }}
+                      scriptType: bash
+                      scriptLocation: inlineScript
+                      inlineScript: |
+                        eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
+                        PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(PROD_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
+                          python -m scripts.ci_agents deploy --target azure-webapp --base "$(PROD_URL)" --execute
+                    env: { PROD_API_KEYS: $(PROD_API_KEYS) }
+                - ${{ if ne(parameters.deployTarget, 'azure-webapp') }}:
+                  - script: |
                       eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
-                      PACKAGE=$(Pipeline.Workspace)/drop/regguard.zip WEBAPP_NAME=$(PROD_WEBAPP_NAME) RESOURCE_GROUP=$(RESOURCE_GROUP) \
-                        python -m scripts.ci_agents deploy --target azure-webapp --base "$(PROD_URL)" --execute
-                  env: { PROD_API_KEYS: $(PROD_API_KEYS) }
-                - script: |
-                    eval "$(python -m scripts.ci_agents.keys PROD_API_KEYS)"
-                    python -m scripts.ci_agents deploy --target webhook --base "$(PROD_URL)" --execute
-                  displayName: Deploy Agent (webhook host)
-                  condition: ne(variables['DEPLOY_TARGET'], 'azure-webapp')
-                  env: { PROD_API_KEYS: $(PROD_API_KEYS), DEPLOY_HOOK_URL: $(PROD_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(PROD_ROLLBACK_HOOK_URL) }
+                      python -m scripts.ci_agents deploy --target webhook --base "$(PROD_URL)" --execute
+                    displayName: Deploy Agent (webhook host - Render, Railway, ...)
+                    env: { PROD_API_KEYS: $(PROD_API_KEYS), DEPLOY_HOOK_URL: $(PROD_DEPLOY_HOOK_URL), ROLLBACK_HOOK_URL: $(PROD_ROLLBACK_HOOK_URL) }
