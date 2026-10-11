@@ -23,6 +23,12 @@ for _role, _key in K.items():
         print(f"WARNING: no {_role} key supplied (set API_KEYS, or {_role.upper()}_KEY)")
     elif len(_key) < 24:
         print(f"WARNING: the {_role} key is only {len(_key)} characters (generated keys are 32) - was it truncated while copying?")
+_lens = {r: len(k) for r, k in K.items() if k}
+if len(set(_lens.values())) > 1:  # keys from gen_secrets all have the same length, so a differing one was probably truncated/extended
+    _common = max(set(_lens.values()), key=list(_lens.values()).count)
+    for _role, _n in _lens.items():
+        if _n != _common:
+            print(f"WARNING: the {_role} key is {_n} characters but the others are {_common} - it was probably truncated while copying (a rejected key shows up as HTTP 401).")
 H = lambda role, **extra: {"Authorization": f"Bearer {K[role]}", **extra}
 results: list[tuple[str, bool, str]] = []
 

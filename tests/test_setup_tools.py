@@ -81,5 +81,7 @@ def test_smoke_accepts_one_api_keys_string_and_warns_on_truncated_keys(monkeypat
     sys.modules.pop("scripts.prod_smoke", None)
     smoke = importlib.import_module("scripts.prod_smoke")
     assert smoke.K == {"admin": "A" * 32, "analyst": "B" * 32, "viewer": "C" * 31}
-    assert "viewer key is only 31 characters" in capsys.readouterr().out   # the exact mistake that caused the 401 on staging
+    out = capsys.readouterr().out                                          # the exact mistake that caused the 401 on staging
+    assert "the viewer key is 31 characters but the others are 32" in out and "probably truncated" in out
+    assert "admin key is" not in out and "analyst key is" not in out
     sys.modules.pop("scripts.prod_smoke", None)
