@@ -39,6 +39,10 @@ async def run(args) -> int:
         roles = sorted({k["role"] for k in ring})
         add(PASS if {"admin", "analyst", "viewer"} <= set(roles) else WARN, "API keys", f"{len(ring)} key(s), roles: {', '.join(roles)}",
             "Define admin, analyst and viewer keys: API_KEYS=k1:admin:tenant,k2:analyst:tenant,k3:viewer:tenant")
+        tenants = sorted({k["tenant"] for k in ring})
+        if len(tenants) > 1:
+            add(WARN, "API key tenants", f"keys belong to different tenants: {', '.join(tenants)}",
+                "Normally every key of one environment shares ONE tenant (the last part of each entry), otherwise roles see different data")
         if not s.api_keys:
             add(WARN, "API_KEYS not set", "using the built-in demo key (dev only)", "python -m scripts.gen_secrets --write")
     except ValueError as e:

@@ -102,6 +102,7 @@ class Settings(BaseSettings):
                 raise ValueError("REDIS_URL must point at a real Redis in production")
             if self.database_url.startswith("sqlite"):
                 raise ValueError("DATABASE_URL must point at PostgreSQL in production")
+            self.key_ring()  # fail at START-UP with a clear message (bad role, short key, wrong shape) instead of at the first login
         return self
 
     # ---- derived -------------------------------------------------------
@@ -109,13 +110,13 @@ class Settings(BaseSettings):
         """Hashed API keys. Raw keys are never retained after startup."""
         raw = self.api_keys or "demo-admin-key:admin:demo-bank"
         ring = []
-        for entry in raw.split(","):
+        for n, entry in enumerate(raw.split(","), 1):
             parts = entry.strip().split(":")
             if len(parts) != 3:
-                raise ValueError("API_KEYS entries must be key:role:tenant")
+                raise ValueError(f"API_KEYS entry #{n} must look like key:role:tenant (got {len(parts)} part(s)); entries are separated by commas")
             key, role, tenant = parts
             if role not in ("admin", "analyst", "viewer"):
-                raise ValueError(f"invalid role {role}")
+                raise ValueError(f"API_KEYS entry #{n} has invalid role '{role}': it must be exactly admin, analyst or viewer")
             if self.is_prod and len(key) < 24:
                 raise ValueError("API keys must be >= 24 chars in production")
             ring.append({"hash": hashlib.sha256(key.encode()).hexdigest(), "role": role, "tenant": tenant})

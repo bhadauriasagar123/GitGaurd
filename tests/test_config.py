@@ -44,3 +44,31 @@ def test_suite_is_hermetic_and_never_reads_a_real_dotenv(tmp_path, monkeypatch):
     assert s.redis_url == "fakeredis://" and s.database_url.startswith("sqlite") and "LIVEPASS" not in s.database_url
     assert Settings.model_config["env_file"] is None
     reset_settings_cache()
+
+
+def test_production_startup_fails_clearly_on_a_mistyped_role():
+    """The staging/production slip: 'analyst-prod' instead of 'analyst' must stop the service at START-UP with a readable message."""
+    import pytest
+    bad = "k" * 24 + ":admin:acme," + "m" * 24 + ":analyst-prod:acme," + "v" * 24 + ":viewer:acme"
+    with pytest.raises(ValueError) as e:
+        prod(api_keys=bad)
+    assert "entry #2" in str(e.value) and "analyst-prod" in str(e.value) and "admin, analyst or viewer" in str(e.value)
+
+
+def test_production_startup_fails_on_wrong_shape_and_short_keys():
+    import pytest
+    with pytest.raises(ValueError, match="entry #1 must look like key:role:tenant"):
+        prod(api_keys="k" * 24 + ":admin")
+    with pytest.raises(ValueError, match="24"):
+        prod(api_keys="short:admin:acme")
+
+
+def test_doctor_warns_when_keys_span_different_tenants(monkeypatch, capsys):
+    from app.core.config import reset_settings_cache
+    from scripts import doctor
+    monkeypatch.setenv("API_KEYS", "a" * 24 + ":admin:acme-bank-prod," + "b" * 24 + ":analyst:acme-bank-prod," + "c" * 24 + ":viewer:acme-bank")
+    reset_settings_cache()
+    doctor.main([])
+    out = capsys.readouterr().out
+    assert "[WARN] API key tenants" in out and "acme-bank, acme-bank-prod" in out
+    reset_settings_cache()
