@@ -197,31 +197,52 @@ shot("07-cross-reg-conflicts.png", 660, 130, 560, 440)
 para(60, 95, "Left: gaps ranked by risk with remediation steps. Right: contradictions between regulators and harmonised control clusters. "
      "Also in the app: version-diff impact analysis and what-if simulation (score 79.4% to 85.3% when a fix is applied).", 16, 1160, color=MUTED)
 
-# 9 - Impact
-slide("Business impact", "Value for a bank")
-card(60, 330, 360, 250)
-card(460, 330, 360, 250)
-card(860, 330, 360, 250)
-for x, t, d in [(60, "Earlier gaps", "Continuous, evidence-based assessment instead of find-it-at-audit"),
-                (460, "Less duplication", "One harmonised control per overlapping obligation across regulators"),
-                (860, "Safe AI adoption", "Regulatory content cannot hijack the agents or leak prompts and documents")]:
-    para(x + 24, 535, t, 24, 320, "Helvetica-Bold", ACCENT)
-    para(x + 24, 490, d, 18, 320, color=MUTED)
-para(60, 280, "Measured on the public-regulation demo dataset (CERT-In, RBI, DPDP, GDPR): 37 obligations, 23 controls, 10 gaps ranked, 4 cross-regulation clusters, "
-     "3 conflicts found automatically. Firewall: 88% accuracy, 78% attack recall, 0% false positives on an unseen team-authored set.", 19, 1160)
-para(60, 190, "Savings depend on the bank's size and current process; we do not claim a figure we have not measured with a customer. "
-     "A pilot would measure analyst-hours per regulatory change before and after.", 17, 1160, color=MUTED)
+# 9 - Impact + comparison
+slide("Business impact and how we compare", "Value for a bank")
+for x, ttl, d in [(60, "Earlier gaps", "Continuous, evidence-based checks instead of finding problems at audit time"),
+                  (460, "Less duplication", "One shared control for overlapping rules from different regulators"),
+                  (860, "Safe AI adoption", "Regulatory documents cannot hijack the AI or leak its prompt and files")]:
+    card(x, 470, 360, 110)
+    para(x + 20, 550, ttl, 22, 320, "Helvetica-Bold", ACCENT)
+    para(x + 20, 520, d, 15, 320, color=MUTED, lead=1.25)
+cols = [60, 380, 700, 960]
+heads = ["", "Spreadsheets and manual review", "Generic AI chatbot", "RegGuard Shield"]
+rows = [("Finds compliance gaps", "Periodic, manual", "Not evidence-based", "Continuous, evidence-weighted"),
+        ("Spots regulator conflicts", "Rarely", "May hallucinate", "Detected and explained"),
+        ("Resists hidden instructions", "n/a", "Usually unprotected", "Firewall blocks and audits"),
+        ("Shows why (audit trail)", "Scattered files", "None", "Hash-chained audit log")]
+y = 425
+c.setFillColor(INK)
+c.roundRect(60, y - 8, 1160, 34, 8, fill=1, stroke=0)
+c.setFont("Helvetica-Bold", 15)
+c.setFillColor(white)
+for x, h_ in zip(cols, heads):
+    c.drawString(x + 12, y + 4, h_)
+y -= 40
+for r in rows:
+    card(60, y - 10, 1160, 34)
+    for i, (x, v) in enumerate(zip(cols, r)):
+        c.setFont("Helvetica-Bold" if i in (0, 3) else "Helvetica", 15)
+        c.setFillColor(ACCENT2 if i == 3 else INK if i == 0 else MUTED)
+        c.drawString(x + 12, y + 2, v)
+    y -= 42
+para(60, 160, "Measured on the public-regulation demo set (CERT-In, RBI, DPDP, GDPR): 37 obligations, 23 controls, 10 gaps ranked, 4 cross-regulation clusters, 3 conflicts found automatically. "
+     "Firewall: 88% accuracy, 78% attack recall, 0% false positives on an unseen team-authored set.", 15, 1160)
+para(60, 100, "Comparison is by category (typical manual processes and general-purpose chatbots), not named products. We claim no cost saving we have not measured; a pilot would measure analyst-hours per regulatory change.",
+     13, 1160, color=MUTED)
 
 # 10 - Scalability & security
-slide("Scalability and security", "Production-ready")
-card(60, 150, 560, 430)
-para(84, 540, "Scalability", 22, 520, "Helvetica-Bold", ACCENT)
-bullets(84, 495, ["Stateless app; state in PostgreSQL and Redis, so replicas scale horizontally", "Redis read-model cache (CQRS) and single-flight analysis",
-                  "Idempotent writes, distributed tenant locks, rate limits", "Same code runs free (Render/Neon/Upstash) or on Azure App Service"], 19, 520, 10)
-card(660, 150, 560, 430)
-para(684, 540, "Security and trust", 22, 520, "Helvetica-Bold", ACCENT2)
-bullets(684, 495, ["RBAC, tenant isolation, AES-256-GCM at rest", "RFC 7807 errors with no internal leakage, correlation IDs everywhere", "Tamper-evident hash-chained audit log",
-                   "Honest limits documented: adaptive attackers can evade any classifier"], 19, 520, 10)
+slide("Security and scalability", "Production-ready")
+card(60, 230, 700, 350)
+para(84, 545, "Security measures (OWASP Top 10, API Top 10, LLM Top 10)", 20, 660, "Helvetica-Bold", ACCENT2)
+bullets(84, 505, ["Prompt Injection Firewall on every input; AI never sees raw documents", "Egress guard + canary token stop prompt and file leaks",
+                  "Per-bank data isolation (tenant) and role-based access", "AES-256-GCM encryption of every stored document",
+                  "Tamper-evident hash-chained audit log, verifiable on demand", "Rate limits, size limits, zip-bomb and ReDoS protection",
+                  "Strict browser security headers; production refuses weak config", "Dependency, code and secret scans gate every release"], 16, 660, 7)
+card(800, 230, 420, 350)
+para(824, 545, "Scalability", 20, 380, "Helvetica-Bold", ACCENT)
+bullets(824, 505, ["Stateless app: add replicas freely", "State in PostgreSQL + Redis cache", "Idempotent writes, tenant locks", "Runs free today; Azure App Service ready",
+                   "Honest limit: adaptive attackers can evade any classifier"], 16, 380, 7)
 
 # 11 - Roadmap
 slide("Future roadmap", "What comes next")
