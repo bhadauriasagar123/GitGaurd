@@ -272,7 +272,7 @@ async function auditTab() {
   const el = clear($("#auditList")); log.forEach((a) => el.append(h("div", { class: "step" }, h("b", {}, a.action), h("span", { class: "hint" }, `#${a.seq} ${a.ts.slice(11, 19)} ${a.actor} ${a.resource} · ${a.correlationId} · ${a.hash}`))));
   $("#sysInfo").textContent = JSON.stringify(info, null, 2);
 }
-onClick("#auditVerify", async () => { const v = await api("/api/v1/audit/verify"); banner(v.valid ? `Audit chain intact: ${v.entries} entries, head ${v.headHash.slice(0, 16)}…` : `TAMPERING DETECTED at sequence ${v.brokenAtSeq}`, !v.valid); });
+onClick("#auditVerify", async () => { const v = await api("/api/v1/audit/verify"); banner(v.valid ? `Audit chain intact: ${v.entries} entries, head ${v.headHash.slice(0, 16)}…` : `Audit chain NOT verified (entry ${v.brokenAtSeq} of ${v.entries}, ${String(v.diagnosis || "").replace(/_/g, " ").toLowerCase()}): ${v.hint || ""}`, !v.valid); });
 
 // ------------------------------------------------------------------ upload (regulations, policies, controls, evidence)
 const UP = { b64: null, name: "" };

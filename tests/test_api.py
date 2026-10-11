@@ -316,3 +316,69 @@ async def test_public_regulation_dataset_loads_end_to_end(client):
 async def test_whatif_validation(client):
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": [{"type": "drop_database"}]})).status_code == 400
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": []})).status_code == 400
+
+
+# ---------------------------------------------------------------- audit chain diagnosis (key change vs tampering vs link break)
+async def _write_entries(n, tenant="bank-a", start=0):
+    from app.infra.db import Database
+    for i in range(n):
+        async with Database.instance().uow() as u:
+            await u.audit.append(tenant, f"test.event{start + i}", f"r{start + i}", {"i": start + i})
+
+
+async def _verify(tenant="bank-a"):
+    from app.infra.db import Database
+    async with Database.instance().uow() as u:
+        return await u.audit.verify(tenant)
+
+
+async def test_audit_diagnosis_valid_chain(client):
+    await _write_entries(5)
+    v = await _verify()
+    assert v["valid"] is True and v["entries"] == 5 and "diagnosis" not in v
+
+
+async def test_audit_diagnosis_key_changed_mid_life_reports_unverifiable_prefix(client, monkeypatch):
+    """The production case: entries written under an older ENC_KEY, then a new key took over. Must say so, not just 'broken at 1'."""
+    import hashlib
+    import hmac as _hmac
+    from app.core import crypto
+    real = crypto.hmac_hex
+    monkeypatch.setattr(crypto, "hmac_hex", lambda data: _hmac.new(b"OLD-KEY", data.encode(), hashlib.sha256).hexdigest())
+    await _write_entries(3)
+    monkeypatch.setattr(crypto, "hmac_hex", real)
+    await _write_entries(4, start=3)
+    v = await _verify()
+    assert v["valid"] is False and v["brokenAtSeq"] == 1 and v["diagnosis"] == "WRITTEN_UNDER_DIFFERENT_KEY"
+    assert v["unverifiableSeqs"] == [1, 2, 3] and "Entries 1-3" in v["hint"] and "new tenant id" in v["hint"]
+
+
+async def test_audit_diagnosis_everything_under_another_key(client, monkeypatch):
+    import hashlib
+    import hmac as _hmac
+    from app.core import crypto
+    monkeypatch.setattr(crypto, "hmac_hex", lambda data: _hmac.new(b"ANOTHER-ENV", data.encode(), hashlib.sha256).hexdigest())
+    await _write_entries(4)
+    monkeypatch.undo()
+    v = await _verify()
+    assert v["valid"] is False and v["diagnosis"] == "WRITTEN_UNDER_DIFFERENT_KEY" and "Every entry fails" in v["hint"]
+
+
+async def test_audit_diagnosis_tampered_entry_is_reported_as_modified(client):
+    from app.infra.db import Database
+    await _write_entries(6)
+    async with Database.instance().uow() as u:
+        await u.audit._tamper_for_tests("bank-a", 4, "totally.innocent")
+    v = await _verify()
+    assert v["valid"] is False and v["diagnosis"] == "ENTRIES_MODIFIED" and v["unverifiableSeqs"] == [4] and v["brokenAtSeq"] == 4
+
+
+async def test_audit_diagnosis_removed_entry_is_a_link_break(client):
+    from sqlalchemy import delete
+    from app.infra.db import Database
+    from app.infra.orm import AuditRow
+    await _write_entries(6)
+    async with Database.instance().uow() as u:
+        await u.session.execute(delete(AuditRow).where(AuditRow.tenant == "bank-a", AuditRow.seq == 3))
+    v = await _verify()
+    assert v["valid"] is False and v["diagnosis"] == "LINK_BROKEN" and v["brokenAtSeq"] == 4
