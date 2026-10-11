@@ -129,7 +129,7 @@ async def run(args) -> int:
                 docs = await c.get(f"{base}/docs")
                 add(PASS if docs.status_code == 404 else WARN, "Swagger hidden", f"/docs -> {docs.status_code}", "Set DOCS_ENABLED=false in production")
                 hdr = h.headers
-                good = hdr.get("x-content-type-options") == "nosniff" and "frame-ancestors" in hdr.get("content-security-policy", "") and "server" not in hdr
+                good = hdr.get("x-content-type-options") == "nosniff" and "frame-ancestors" in hdr.get("content-security-policy", "") and "uvicorn" not in hdr.get("server", "").lower()  # a CDN edge may add its own Server header
                 add(PASS if good else WARN, "Security headers", "present" if good else "missing/leaky", "Use `--no-server-header` when starting uvicorn (Dockerfile already does)")
         except Exception as e:  # noqa: BLE001
             add(FAIL, "Deployment probe", f"{type(e).__name__}: {e}", "Is the URL right and the service running?")

@@ -321,3 +321,17 @@ async def test_PR28_postgres_specific_jsonb_and_timezone_roundtrip(client):
     async with Database.instance().uow() as u:
         q = await u.docstore.list("bank-a", "impact")
         assert q and isinstance(q[0]["newGaps"], list)
+
+
+async def test_PR29_readyz_logs_which_dependency_failed_without_leaking_secrets(client):
+    cap = Capture()
+    logging.getLogger().addHandler(cap)
+    try:
+        container(client).redis = DeadRedis()
+        r = await client.get("/readyz")
+    finally:
+        logging.getLogger().removeHandler(cap)
+    assert r.status_code == 503 and r.json()["checks"] == {"postgres": "up", "redis": "down"}
+    blob = "\n".join(cap.lines)
+    assert "readiness check failed" in blob and '"dependency": "redis"' in blob and "ConnectionError" in blob
+    assert "redis down" in blob and "password" not in blob.lower()

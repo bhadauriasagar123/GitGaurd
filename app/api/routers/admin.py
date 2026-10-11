@@ -8,9 +8,11 @@ from fastapi import APIRouter, Depends, Request
 from app.api.deps import Principal, idempotent, rate_limit, require
 from app.api.schemas import ProfileIn
 from app.core.config import get_settings
+from app.core.logging import get_logger
 from app.cqrs import messages as M
 from app.firewall import egress
 
+log = get_logger("readyz")
 public = APIRouter(tags=["Platform"])
 router = APIRouter(prefix="/api/v1", tags=["Administration"])
 
@@ -27,8 +29,9 @@ async def readyz(request: Request):
     for name, fn in (("postgres", c.db.ping), ("redis", c.redis.ping)):
         try:
             checks[name] = "up" if await fn() else "down"
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - report which dependency failed and why (type + short message, never credentials)
             checks[name] = "down"
+            log.warning("readiness check failed", dependency=name, error=type(e).__name__, detail=str(e)[:200])
     ok = all(v == "up" for v in checks.values())
     from fastapi.responses import JSONResponse
     return JSONResponse({"status": "ready" if ok else "degraded", "checks": checks}, status_code=200 if ok else 503)
