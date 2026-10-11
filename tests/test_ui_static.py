@@ -47,6 +47,11 @@ def test_script_never_sets_inline_style_attribute():
     assert 'setAttribute("style"' not in JS and "setAttribute('style'" not in JS
 
 
+def test_upload_picker_uses_native_label_activation():
+    assert re.search(r'<label[^>]*id="upDrop"[^>]*for="upPick"', HTML)
+    assert 'drop.addEventListener("click"' not in JS
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 def test_app_js_parses():
     r = subprocess.run(["node", "--check", str(STATIC / "app.js")], capture_output=True, text=True)

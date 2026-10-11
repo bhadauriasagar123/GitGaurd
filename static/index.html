@@ -63,11 +63,11 @@
         <label class="field">Jurisdiction<input id="upJur" maxlength="10" placeholder="IN"></label>
         <label class="field">Effective date<input id="upEff" type="date"></label>
       </div>
-      <div id="upDrop" class="drop" tabindex="0" role="button" aria-label="Choose or drop a file">
+      <label id="upDrop" class="drop" for="upPick" tabindex="0" role="button" aria-label="Choose or drop a file">
         <span class="big" aria-hidden="true">&#128196;</span><b>Drop a file here or click to browse</b>
         <span class="hint">.txt .md .html .json .eml .pdf .docx &middot; up to 2.5 MB</span><span id="upFile" class="hint"></span>
         <input id="upPick" type="file" hidden accept=".txt,.md,.markdown,.html,.htm,.json,.eml,.pdf,.docx,.csv">
-      </div>
+      </label>
       <textarea id="upText" rows="9" placeholder="...or paste the document text here"></textarea>
       <div class="row"><button id="upGo" class="btn primary">Scan &amp; ingest</button><span class="hint">Try:</span><span id="upSamples" class="chips"></span></div>
       <div id="upResult"></div>

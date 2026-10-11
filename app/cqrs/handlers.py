@@ -89,18 +89,23 @@ class Handlers:
                 evidence.extend(parse_evidence(t))
         return {"profile": profile, "regulations": regs, "controls": controls, "evidence": evidence}
 
-    async def _load_state(self, tenant: str, rows=None) -> tuple[dict, list[str]]:
-        async with self.c.db.uow() as u:
-            rows = rows if rows is not None else await u.documents.list(tenant)
-            texts = {r.id: u.documents.plaintext(r) for r in rows}
-        state = self._parse(rows, texts, await self._profile(tenant))
+    async def _load_state(self, tenant: str, rows=None, profile=None, texts=None) -> tuple[dict, list[str]]:
+        if rows is None:
+            async with self.c.db.uow() as u:
+                rows = await u.documents.list(tenant)
+                texts = {r.id: u.documents.plaintext(r) for r in rows}
+        elif texts is None:
+            raise ValueError("texts are required when rows are supplied")
+        state = self._parse(rows, texts, profile if profile is not None else await self._profile(tenant))
         return state, [t for r, t in ((r, texts[r.id]) for r in rows) if r.kind in ("regulation", "policy")]
 
     async def _analysis(self, tenant: str) -> dict:
         """Read model: Redis-cached analysis snapshot keyed by a fingerprint of the write model."""
         async with self.c.db.uow() as u:
             rows = await u.documents.list(tenant)
-        profile = await self._profile(tenant)
+            texts = {r.id: u.documents.plaintext(r) for r in rows}
+            stored_profile = await u.docstore.get(tenant, "profile", "current")
+        profile = {**engine.DEFAULT_PROFILE, **(stored_profile or {})}
         fp = crypto.sha256(json.dumps([[r.id, r.sha256] for r in rows] + [profile, date.today().isoformat()], sort_keys=True))[:24]
         key = f"analysis:{tenant}:{fp}"
         cached = await self.c.redis.get(key)
@@ -116,7 +121,7 @@ class Handlers:
                     data = _unpack(cached)
                     data["_cache"] = "hit"
                     return data
-                state, _ = await self._load_state(tenant, rows)
+                state, _ = await self._load_state(tenant, rows, profile, texts)
                 result = await asyncio.to_thread(engine.analyze, state)
                 await self.c.redis.set(key, _pack(result), ex=3600)
         finally:
@@ -154,17 +159,20 @@ class Handlers:
             # 2. Obligation / control extraction
             with trace.step("Extraction Agent", f"parse {cmd.kind}") as st:
                 if cmd.kind in ("regulation", "policy"):
-                    n = len(extract_obligations(text, {"code": reg.get("code"), "version": reg.get("version", "1"), **reg}))
+                    parsed = extract_obligations(text, {"code": reg.get("code"), "version": reg.get("version", "1"), **reg})
+                    n = len(parsed)
                     if n == 0:
                         raise Unprocessable("No regulatory obligations (shall/must/prohibited) found in document")
                     st["detail"] = f"{n} obligations extracted"
                 elif cmd.kind == "control":
-                    n = len(parse_controls(text))
+                    parsed = parse_controls(text)
+                    n = len(parsed)
                     if n == 0:
                         raise Unprocessable("No controls parsed (expected 'Control ID:' blocks or JSON array)")
                     st["detail"] = f"{n} controls parsed"
                 else:
-                    n = len(parse_evidence(text))
+                    parsed = parse_evidence(text)
+                    n = len(parsed)
                     if n == 0:
                         raise Unprocessable("No evidence records parsed (need id, control, date)")
                     st["detail"] = f"{n} evidence records parsed"
@@ -204,7 +212,42 @@ class Handlers:
                                           "critical": after["counts"]["gapsByBand"].get("critical", 0), "trigger": f"{cmd.kind}:{cmd.title}"})
         await self.c.events.publish("document.ingested", {"tenant": cmd.tenant, "id": doc_id, "kind": cmd.kind})
         return {"document": meta, "firewall": {k: fw[k] for k in ("verdict", "riskScore", "categoriesDetected", "findings")},
-                "impact": impact, "complianceScore": after["complianceScore"], "agentTrace": trace.export()}
+                "impact": impact, "complianceScore": after["complianceScore"], "report": self._doc_report(cmd, reg, parsed, before, after),
+                "agentTrace": trace.export()}
+
+    @staticmethod
+    def _doc_report(cmd, reg, parsed, before, after) -> dict:
+        """Document-scoped findings: what the upload contains, how it is assessed, which gaps remain and how to fix them."""
+        b_ids, a_ids = {g["id"] for g in before["gaps"]}, {g["id"] for g in after["gaps"]}
+        titles = {c["id"]: c["title"] for c in after["controls"]}
+        obligations, controls = [], []
+        if cmd.kind in ("regulation", "policy"):
+            asm = {a["obligationId"]: a for a in after["assessments"]}
+            for o in after["obligations"]:
+                if o["regCode"] != reg.get("code"):
+                    continue
+                a = asm.get(o["id"])
+                obligations.append({"id": o["id"], "clause": o["clause"], "text": o["text"], "modality": o["modality"], "severity": o["severity"],
+                                    "deadlineHours": o.get("deadlineHours"), "status": a["status"] if a else "not_applicable",
+                                    "applicability": o["applicability"]["reason"],
+                                    "controls": [{"id": m["controlId"], "title": titles.get(m["controlId"], m["controlId"]), "score": m["score"]}
+                                                 for m in (a["mappedControls"] if a else [])][:3]})
+            relevant = [g for g in after["gaps"] if g["regCode"] == reg.get("code")]
+        else:
+            ids = {c["id"] for c in parsed} if cmd.kind == "control" else {e["controlId"] for e in parsed}
+            eff = {e["controlId"]: e for e in after["controlEffectiveness"]}
+            controls = [{"id": cid, "title": titles.get(cid, cid), **{k: eff[cid][k] for k in ("rating", "overall", "designScore", "operatingScore", "lastTested", "notes")}}
+                        for cid in sorted(ids) if cid in eff]
+            relevant = [g for g in after["gaps"] if g["id"] not in b_ids or ids & set(g["controls"])]
+        counts: dict[str, int] = {}
+        for o in obligations:
+            counts[o["status"]] = counts.get(o["status"], 0) + 1
+        keys = ("id", "type", "title", "regCode", "clause", "obligation", "detail", "controls", "risk", "remediation")
+        return {"kind": cmd.kind, "parsedCount": len(parsed), "scoreBefore": before["complianceScore"], "scoreAfter": after["complianceScore"],
+                "scoreDelta": round(after["complianceScore"] - before["complianceScore"], 1), "obligations": obligations, "statusCounts": counts,
+                "controls": controls, "gapCount": len(relevant),
+                "gaps": [{**{k: g[k] for k in keys}, "isNew": g["id"] not in b_ids} for g in relevant[:25]],
+                "resolvedGaps": [{"id": g["id"], "title": g["title"], "regCode": g["regCode"], "clause": g["clause"]} for g in before["gaps"] if g["id"] not in a_ids][:25]}
 
     @staticmethod
     def _impact(cmd, reg, before, after) -> dict | None:

@@ -282,6 +282,20 @@ async def test_agent_trace_returned_on_ingest(client):
     assert [s["agent"] for s in tr["steps"]] == ["Firewall Sentinel", "Extraction Agent", "Ingestion Agent", "Impact Analysis Agent", "Monitoring Agent"]
 
 
+async def test_ingest_returns_document_scoped_report_with_fixes(client):
+    rep = (await client.post("/api/v1/documents", headers=ANALYST, json=REG)).json()["report"]
+    assert rep["kind"] == "regulation" and rep["parsedCount"] == 2 and len(rep["obligations"]) == 2
+    assert all(o["status"] == "uncovered" for o in rep["obligations"]) and rep["statusCounts"] == {"uncovered": 2}
+    assert rep["gapCount"] == len(rep["gaps"]) >= 2 and all(g["isNew"] and g["regCode"] == "T-REG" for g in rep["gaps"])
+    fix = rep["gaps"][0]["remediation"]
+    assert fix["steps"] and fix["ownerRole"] and fix["targetDays"] > 0 and fix["successCriteria"]
+    ctrl = {"kind": "control", "title": "Incident controls", "sourceType": "text",
+            "content": "Control ID: C-77\nTitle: Incident reporting\nDescription: Incidents are reported to the regulator within 24 hours.\nOwner: CISO\nType: corrective\nFrequency: continuous\nAutomation: automated"}
+    rep = (await client.post("/api/v1/documents", headers=ANALYST, json=ctrl)).json()["report"]
+    assert rep["kind"] == "control" and [c["id"] for c in rep["controls"]] == ["C-77"] and rep["controls"][0]["rating"] == "untested"
+    assert rep["scoreAfter"] >= rep["scoreBefore"]
+
+
 async def test_whatif_validation(client):
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": [{"type": "drop_database"}]})).status_code == 400
     assert (await client.post("/api/v1/whatif", headers=ANALYST, json={"changes": []})).status_code == 400

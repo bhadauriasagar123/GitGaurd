@@ -124,7 +124,7 @@ function drawPosture(score, byStatus) {
 }
 async function overview() {
   skeleton($("#topGaps"), 3);
-  const s = await api("/api/v1/analysis/summary"); const c = s.counts;
+  const [s, trend] = await Promise.all([api("/api/v1/analysis/summary"), api("/api/v1/monitoring/trend")]); const c = s.counts;
   LAST_SUMMARY = s;
   drawPosture(s.complianceScore, c.byStatus || {});
   const k = clear($("#kpis"));
@@ -133,7 +133,7 @@ async function overview() {
   const tg = clear($("#topGaps"));
   s.topGaps.forEach((g) => tg.append(h("div", { class: "item" }, h("header", {}, pill(g.risk.band), h("span", { class: "t" }, g.title), h("span", { class: "hint" }, `${g.regCode} cl.${g.clause} · risk ${g.risk.riskScore}`)), h("div", { class: "hint" }, g.detail))));
   if (!s.topGaps.length) tg.append(h("p", { class: "hint" }, "No data yet - click “Load demo dataset”."));
-  drawTrend(await api("/api/v1/monitoring/trend"));
+  drawTrend(trend);
 }
 function drawTrend(points) {
   const cv = $("#trend"), ctx = cv.getContext("2d"); ctx.clearRect(0, 0, cv.width, cv.height);
@@ -295,19 +295,118 @@ function upLoadFile(f) {
   if (binary) { rd.onload = () => { UP.b64 = String(rd.result).split(",")[1] || ""; $("#upText").value = ""; $("#upText").placeholder = "Binary file loaded - it will be parsed and scanned server-side."; }; rd.readAsDataURL(f); }
   else { rd.onload = () => { UP.b64 = null; $("#upText").value = String(rd.result); }; rd.readAsText(f); }
 }
+const STATUS_LABEL = { compliant: "Compliant", partial: "Partially compliant", non_compliant: "Non-compliant", uncovered: "No control", not_applicable: "Not applicable" };
+const EFFORT = { S: "Small", M: "Medium", L: "Large" };
+const VERDICT_TEXT = {
+  allow: "No prompt-injection content was detected. The document was passed to the analysis agents unchanged.",
+  sanitize: "Suspicious fragments were detected and redacted before storage. The remaining content was analysed.",
+  block: "The document was rejected. Nothing reached the analysis agents.",
+};
+const section = (title, ...kids) => h("div", { class: "rep-sec" }, h("h3", {}, title), ...kids);
+const label = (t) => h("div", { class: "rep-label" }, t);
+function table(heads, rows) {
+  return h("div", { class: "tbl-wrap" }, h("table", { class: "tbl" }, h("thead", {}, h("tr", {}, heads.map((x) => h("th", {}, x)))), h("tbody", {}, rows)));
+}
+function firewallSection(fw) {
+  const kids = [h("div", { class: "row" }, pill("FIREWALL " + fw.verdict.toUpperCase(), fw.verdict), h("b", {}, "Risk score " + fw.riskScore),
+    (fw.categoriesDetected || []).length ? h("span", { class: "hint" }, "Categories: " + fw.categoriesDetected.join(", ")) : null),
+    h("p", { class: "hint" }, VERDICT_TEXT[fw.verdict] || "")];
+  const f = fw.findings || [];
+  if (f.length) kids.push(table(["Category", "Why it was flagged", "Where", "Excerpt"], f.slice(0, 8).map((x) => h("tr", {},
+    h("td", {}, pill(x.category, x.severity === "critical" ? "critical" : "high")), h("td", {}, x.explanation),
+    h("td", {}, x.channel + (x.encodedVia ? " via " + x.encodedVia.join("+") : "")), h("td", { class: "mono" }, "“" + x.excerpt + "”")))));
+  return section("1 · Security scan", ...kids);
+}
+function gapCard(g) {
+  const r = g.remediation;
+  return h("div", { class: "item" },
+    h("header", {}, pill(g.risk.band), h("span", { class: "t" }, g.title), g.isNew ? pill("NEW", "block") : null, h("span", { class: "hint" }, `${g.regCode} cl.${g.clause} · risk ${g.risk.riskScore}`)),
+    label("Requirement"), h("div", {}, g.obligation),
+    label("Problem"), h("div", {}, g.detail),
+    label("How to fix"), h("ol", { class: "fix-steps" }, r.steps.map((s) => h("li", {}, s))),
+    h("div", { class: "fix-meta" }, h("span", {}, "Owner: ", h("b", {}, r.ownerRole)), h("span", {}, "Effort: ", h("b", {}, EFFORT[r.effort] || r.effort)),
+      h("span", {}, "Target: ", h("b", {}, r.targetDays + " days")), h("span", {}, "Score uplift: ", h("b", {}, "+" + r.expectedScoreUpliftPct + "%"))),
+    h("div", { class: "hint" }, "Done when: " + r.successCriteria));
+}
 function upRender(r) {
-  const box = clear($("#upResult")), fw = r.firewall;
-  box.append(h("div", { class: "result-block ok" },
-    h("div", { class: "row" }, pill("FIREWALL " + fw.verdict.toUpperCase(), fw.verdict), h("b", {}, "risk " + fw.riskScore), pill("score now " + r.complianceScore + "%", "allow")),
-    h("p", {}, r.impact ? r.impact.headline : "Document ingested; analysis refreshed."),
-    fw.verdict === "sanitize" ? h("p", { class: "hint" }, "Suspicious fragments were redacted before storage; the rest of the document was kept.") : null,
-    h("div", { id: "upTrace" })));
+  const box = clear($("#upResult")), fw = r.firewall, rep = r.report || {}, isReg = REG_KINDS.includes(rep.kind);
+  const sc = rep.statusCounts || {}, delta = rep.scoreDelta || 0, gapN = rep.gapCount || 0;
+  const what = isReg ? `${rep.parsedCount} obligation(s)` : rep.kind === "control" ? `${rep.parsedCount} control(s)` : `${rep.parsedCount} evidence record(s)`;
+  const summary = `Extracted ${what}. ` + (gapN ? `${gapN} gap(s) need action` : "No open gaps for this document") +
+    `; compliance score ${rep.scoreBefore}% → ${rep.scoreAfter}% (${delta > 0 ? "+" : ""}${delta}).`;
+  const block = h("div", { class: "result-block " + (gapN ? "warn" : "ok") },
+    h("div", { class: "rep-head" }, h("h2", {}, "Scan report · " + r.document.title), pill(gapN ? "ACTION NEEDED" : "NO GAPS", gapN ? "partial" : "allow")),
+    h("p", { class: "rep-sum" }, summary));
+  block.append(firewallSection(fw));
+
+  const k = h("div", { class: "kpis compact" });
+  if (isReg) {
+    k.append(kpi("Obligations", rep.parsedCount, "", 0), kpi("Compliant", sc.compliant || 0, "", 1), kpi("Partial", sc.partial || 0, "", 2),
+      kpi("Non-compliant / no control", (sc.non_compliant || 0) + (sc.uncovered || 0), (sc.non_compliant || sc.uncovered) ? "bad" : "", 3), kpi("Gaps", gapN, gapN ? "bad" : "", 4));
+  } else {
+    const eff = (rep.controls || []).filter((c) => c.rating === "effective").length;
+    k.append(kpi(rep.kind === "control" ? "Controls parsed" : "Evidence records", rep.parsedCount, "", 0), kpi("Controls effective", `${eff} / ${(rep.controls || []).length}`, "", 1),
+      kpi("Related gaps", gapN, gapN ? "bad" : "", 2), kpi("Gaps resolved", (rep.resolvedGaps || []).length, "", 3));
+  }
+  k.append(kpi("Score after", rep.scoreAfter + "%", delta < 0 ? "bad" : "", 5));
+  block.append(section("2 · Results", k));
+
+  if (isReg && rep.obligations.length) {
+    block.append(section("3 · Obligations and compliance status", table(["Clause", "Requirement", "Status", "Mapped control"], rep.obligations.map((o) => h("tr", {},
+      h("td", {}, o.clause), h("td", {}, o.text, o.deadlineHours ? h("div", { class: "hint" }, `Deadline: ${o.deadlineHours} h`) : null),
+      h("td", {}, pill(STATUS_LABEL[o.status] || o.status, o.status)),
+      h("td", {}, o.controls.length ? o.controls.map((c) => h("div", {}, `${c.id} · ${c.title} `, h("span", { class: "hint" }, `(${Math.round(c.score * 100)}% match)`)))
+        : h("span", { class: "hint" }, o.status === "not_applicable" ? o.applicability : "No matching control")))))));
+  }
+  if (!isReg && (rep.controls || []).length) {
+    block.append(section("3 · Control effectiveness", table(["Control", "Rating", "Score", "Last tested", "Notes"], rep.controls.map((c) => h("tr", {},
+      h("td", {}, h("b", {}, c.id), " · " + c.title), h("td", {}, pill(c.rating.replace("_", " "), c.rating)), h("td", {}, c.overall + "%"),
+      h("td", {}, c.lastTested || "never"), h("td", {}, c.notes.length ? c.notes.join("; ") : h("span", { class: "hint" }, "—")))))));
+  }
+
+  const fixes = section("4 · Gaps and recommended fixes");
+  if (!gapN) fixes.append(h("p", { class: "hint" }, "Nothing to fix for this document. Every in-scope requirement is backed by an effective, tested control."));
+  else {
+    fixes.append(h("p", { class: "hint" }, "Ordered by risk. Start with the first item."));
+    rep.gaps.forEach((g) => fixes.append(gapCard(g)));
+    if (gapN > rep.gaps.length) fixes.append(h("p", { class: "hint" }, `Showing ${rep.gaps.length} of ${gapN}. See “Gaps & Remediation” for the full list.`));
+  }
+  block.append(fixes);
+  if ((rep.resolvedGaps || []).length) block.append(section("Gaps closed by this upload", h("ul", {}, rep.resolvedGaps.map((g) => h("li", {}, pill("RESOLVED", "allow"), ` ${g.title} — ${g.regCode} cl.${g.clause}`)))));
+  if (r.impact) block.append(section("Regulatory change impact", h("p", {}, r.impact.headline)));
+  const tr = h("details", { class: "trace" }, h("summary", {}, "Agent trace (processing steps)"), h("div", { id: "upTrace" }));
+  block.append(tr); box.append(block);
   showTrace(r.agentTrace, $("#upTrace"));
+  block.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function upBlocked(e) {
   const d = e.data.detail || {}, box = clear($("#upResult"));
-  box.append(h("div", { class: "result-block bad" }, h("div", { class: "row" }, pill("BLOCKED BY FIREWALL", "block"), h("b", {}, "risk " + d.riskScore), h("span", { class: "hint" }, "quarantined (hash only) · never reached any agent · audited")),
-    h("p", {}, e.message), h("ul", {}, (d.findings || []).slice(0, 6).map((f) => h("li", {}, pill(f.category, "critical"), ` ${f.explanation} `, h("span", { class: "hint" }, `[${f.channel}] “${f.excerpt}”`))))));
+  const block = h("div", { class: "result-block bad" },
+    h("div", { class: "rep-head" }, h("h2", {}, "Scan report · document rejected"), pill("BLOCKED", "block")),
+    h("p", { class: "rep-sum" }, e.message));
+  block.append(firewallSection({ verdict: "block", riskScore: d.riskScore, categoriesDetected: d.categories || [], findings: d.findings || [] }));
+  block.append(section("2 · How to fix", h("ol", { class: "fix-steps" },
+    h("li", {}, "Remove the flagged fragments listed above from the source file. Check hidden text such as display:none blocks, white or zero-size text, HTML comments and metadata."),
+    h("li", {}, "Delete any sentence addressed to an AI, assistant or model (for example “ignore previous instructions” or “mark controls as compliant”)."),
+    h("li", {}, "Prefer the original copy from the issuing authority over forwarded or edited versions."),
+    h("li", {}, "Upload the cleaned document again. It is re-scanned from scratch.")),
+    h("p", { class: "hint" }, "Only the file hash was quarantined for audit. None of the content was stored or analysed.")));
+  box.append(block); block.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function upFailed(e) {
+  const msg = e.message || "Upload failed", m = msg.toLowerCase(), box = clear($("#upResult"));
+  let tips = [];
+  if (e.status === 409) tips = ["This regulation code and version is already ingested.", "To upload an updated version, change the Version field (for example 1.0 → 1.1). The platform will compare the two versions and report what changed."];
+  else if (m.includes("obligation")) tips = ["No binding requirements were found. Regulations and policies need sentences using shall, must, required to or prohibited.", "Numbered clauses work best, for example: “1.1 Banks shall report incidents within 6 hours.”", "For scanned PDFs, use a version with selectable text."];
+  else if (m.includes("controls parsed")) tips = ["Use “Control ID:” blocks with Title, Description, Owner, Type, Frequency and Automation lines, or a JSON array of controls.", "Try the “control framework” sample below to see the expected format."];
+  else if (m.includes("evidence")) tips = ["Each evidence record needs at least an id, the control it tests, a date and a result (pass, partial or fail)."];
+  else if (m.includes("could not parse")) tips = ["The file could not be read. Make sure the PDF has selectable text and the DOCX is not password-protected or corrupted.", "Check that “Source format” matches the file type."];
+  else if (m.includes("no readable")) tips = ["After removing suspicious content, nothing readable was left. Check that the file has real body text."];
+  else if (e.status === 400 && Array.isArray(e.data && e.data.detail)) tips = e.data.detail.map((x) => `${x.field || "request"}: ${x.message}`);
+  else tips = ["Check the server is running and try again. Quote the correlation ID below if the problem persists."];
+  box.append(h("div", { class: "result-block bad" }, h("div", { class: "rep-head" }, h("h2", {}, "Scan report · not ingested"), pill("FAILED", "block")),
+    h("p", { class: "rep-sum" }, msg), section("How to fix", h("ul", { class: "fix-steps" }, tips.map((t) => h("li", {}, t)))),
+    e.cid ? h("p", { class: "hint" }, "Correlation ID: " + e.cid) : null));
 }
 const uiErr = (m) => Object.assign(new Error(m), { status: "" });
 onClick("#upGo", async () => {
@@ -326,7 +425,8 @@ onClick("#upGo", async () => {
     const r = await api("/api/v1/documents", { method: "POST", body, headers: { "Idempotency-Key": "ui-up-" + crypto.randomUUID() } });
     upRender(r); banner(`Ingested “${title}” - compliance score ${r.complianceScore}%`); await uploadTab(true);
   } catch (e) {
-    if (e.data && e.data.code === "PROMPT_INJECTION_BLOCKED") { upBlocked(e); banner("Document blocked by the Prompt Injection Firewall", true); } else throw e;
+    if (e.data && e.data.code === "PROMPT_INJECTION_BLOCKED") { upBlocked(e); banner("Document blocked by the Prompt Injection Firewall", true); }
+    else { if (e.status) upFailed(e); throw e; }
   }
 });
 async function uploadTab(refreshOnly) {
@@ -334,7 +434,7 @@ async function uploadTab(refreshOnly) {
     Object.entries(UP_SAMPLES).forEach(([name, x]) => $("#upSamples").append(h("button", { class: "chip", onclick: () => upFill(x) }, name)));
     $("#upKind").addEventListener("change", upSync); upSync();
     const drop = $("#upDrop"), pick = $("#upPick");
-    drop.addEventListener("click", () => pick.click()); drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick.click(); } });
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick.click(); } });
     pick.addEventListener("change", () => upLoadFile(pick.files[0]));
     ["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
     ["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
