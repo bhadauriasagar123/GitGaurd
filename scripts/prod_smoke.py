@@ -30,7 +30,7 @@ async def main() -> int:
         r = await c.get("/healthz", headers={"X-Correlation-ID": "smoke-trace-0001"})
         h = r.headers
         check("correlation id echoed", h.get("x-correlation-id") == "smoke-trace-0001")
-        check("security headers", h.get("x-content-type-options") == "nosniff" and "frame-ancestors 'none'" in h.get("content-security-policy", "") and "max-age" in h.get("strict-transport-security", "") and "server" not in h)
+        check("security headers", h.get("x-content-type-options") == "nosniff" and "frame-ancestors 'none'" in h.get("content-security-policy", "") and "max-age" in h.get("strict-transport-security", "") and "uvicorn" not in h.get("server", "").lower())  # a CDN edge (Render/Cloudflare) adds its own Server header; ours is disabled
         r = await c.get("/api/v1/gaps"); check("no key -> 401 problem+json", r.status_code == 401 and r.headers["content-type"].startswith("application/problem+json"))
         r = await c.post("/api/v1/firewall/scan", headers=H("viewer"), json={"content": "x"}); check("viewer cannot scan (RBAC)", r.status_code == 403)
         r = await c.get("/api/v1/audit", headers=H("analyst")); check("analyst cannot read audit (RBAC)", r.status_code == 403)
